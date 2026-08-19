@@ -29,8 +29,8 @@ export class ProjectsService {
           $5, 
           $6, 
           $7, 
-          COALESCE($8::text[], '{}'::text[]), 
-          COALESCE($9::text[], '{}'::text[])
+          $8::text[], 
+          $9::text[]
         )
         RETURNING *;
       `;
@@ -43,8 +43,8 @@ export class ProjectsService {
         dto.priority,
         dto.due_date,
         dto.team_name,
-        dto.labels && dto.labels.length > 0 ? dto.labels : null,
-        dto.resources && dto.resources.length > 0 ? dto.resources : null,
+        dto.labels && dto.labels.length > 0 ? dto.labels : '{}',       
+        dto.resources && dto.resources.length > 0 ? dto.resources : '{}', 
       ];
 
       const result = await this.db.query(query, values);

@@ -8,7 +8,6 @@ interface ProjectDetailPageProps {
 }
 
 export default async function ProjectDetailPage({ params }: ProjectDetailPageProps) {
-  // In Next.js App Router, params is an asynchronous Promise
   const { projectId } = await params;
 
   return (

@@ -8,6 +8,19 @@ import { DatabaseService } from '../database/database.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 
+const formatDateStr = (val: Date | string | null | undefined): string | null => {
+    if (!val) return null;
+    if (typeof val === 'string') {
+        const match = val.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (match) return `${match[1]}-${match[2]}-${match[3]}`;
+        return val.split('T')[0].split(' ')[0];
+    }
+    const year = val.getFullYear();
+    const month = String(val.getMonth() + 1).padStart(2, '0');
+    const day = String(val.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
 @Injectable()
 export class TasksService {
     constructor(private readonly db: DatabaseService) { }
@@ -34,20 +47,10 @@ export class TasksService {
             const project = projectResult.rows[0];
 
             if (dto.due_date && project.due_date) {
-                const formatDateStr = (val: Date | string): string => {
-                    if (typeof val === 'string') {
-                        return val.split('T')[0];
-                    }
-                    const year = val.getFullYear();
-                    const month = String(val.getMonth() + 1).padStart(2, '0');
-                    const day = String(val.getDate()).padStart(2, '0');
-                    return `${year}-${month}-${day}`;
-                };
-
                 const taskDateStr = formatDateStr(dto.due_date);
                 const projectDateStr = formatDateStr(project.due_date);
 
-                if (taskDateStr > projectDateStr) {
+                if (taskDateStr && projectDateStr && taskDateStr > projectDateStr) {
                     throw new BadRequestException(
                         `Task due date (${taskDateStr}) cannot be later than project due date (${projectDateStr})`,
                     );
@@ -72,7 +75,7 @@ export class TasksService {
                 }
 
                 const parentTask = parentResult.rows[0];
-               
+
                 if (parentTask.project_id !== dto.project_id) {
                     throw new BadRequestException(
                         'Subtask must belong to the same project as its parent task',
@@ -145,6 +148,7 @@ export class TasksService {
       LEFT JOIN projects p
         ON t.project_id = p.id
       WHERE t.user_id = $1
+        AND t.parent_id IS NULL
       ORDER BY t.created_at DESC;
     `;
 
@@ -175,9 +179,8 @@ export class TasksService {
       FROM tasks
       WHERE project_id = $1
         AND user_id = $2
-      ORDER BY
-        parent_id NULLS FIRST,
-        created_at DESC;
+        AND parent_id IS NULL
+      ORDER BY created_at DESC;
     `;
 
         const result = await this.db.query(query, [
@@ -200,6 +203,7 @@ export class TasksService {
         ON t.user_id = u.id
       LEFT JOIN projects p
         ON t.project_id = p.id
+      WHERE t.parent_id IS NULL
       ORDER BY t.created_at DESC;
     `;
 
@@ -236,6 +240,46 @@ export class TasksService {
         }
 
         return result.rows[0];
+    }
+
+    async createSubtask(
+        parentId: string,
+        dto: Partial<CreateTaskDto>,
+        userId: string,
+    ) {
+        const parentResult = await this.db.query(
+            `
+            SELECT task_id, project_id, parent_id, due_date::text AS due_date
+            FROM tasks
+            WHERE task_id = $1
+              AND user_id = $2
+            `,
+            [parentId, userId],
+        );
+
+        if (parentResult.rows.length === 0) {
+            throw new NotFoundException(
+                'Parent task not found or you do not have access to it',
+            );
+        }
+
+        const parentTask = parentResult.rows[0];
+
+        if (parentTask.parent_id) {
+            throw new BadRequestException(
+                'A subtask cannot have another subtask (max depth reached)',
+            );
+        }
+
+        return this.create(
+            {
+                ...dto,
+                title: dto.title!,
+                project_id: parentTask.project_id,
+                parent_id: parentId,
+            },
+            userId,
+        );
     }
 
     async findSubtasks(taskId: string, userId: string) {
@@ -290,7 +334,7 @@ export class TasksService {
 
         const projectResult = await this.db.query(
             `
-      SELECT id, due_date
+      SELECT id, due_date::text AS due_date
       FROM projects
       WHERE id = $1
         AND user_id = $2
@@ -306,14 +350,15 @@ export class TasksService {
 
         const project = projectResult.rows[0];
 
-        if (
-            dueDate &&
-            project.due_date &&
-            new Date(dueDate) > new Date(project.due_date)
-        ) {
-            throw new BadRequestException(
-                'Task due date cannot be later than project due date',
-            );
+        if (dueDate && project.due_date) {
+            const taskDateStr = formatDateStr(dueDate);
+            const projectDateStr = formatDateStr(project.due_date);
+
+            if (taskDateStr && projectDateStr && taskDateStr > projectDateStr) {
+                throw new BadRequestException(
+                    `Task due date (${taskDateStr}) cannot be later than project due date (${projectDateStr})`,
+                );
+            }
         }
 
         if (
@@ -423,7 +468,7 @@ export class TasksService {
         comment: string,
         userId: string,
     ) {
-        
+
         const query = `
       UPDATE tasks
       SET comments = array_append(

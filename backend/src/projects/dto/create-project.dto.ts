@@ -50,11 +50,11 @@ export class CreateProjectDto {
   @IsString()
   team_name!: string;
 
+  @IsOptional() 
   @IsArray({ message: 'Labels must be an array of strings' })
   @IsString({ each: true, message: 'Each label must be a string' })
-  @ArrayMinSize(1, { message: 'At least 1 label is required' })
   @ArrayMaxSize(5, { message: 'A maximum of 5 labels is allowed' })
-  labels!: string[];
+  labels?: string[]; 
 
   @IsOptional()
   @IsString()

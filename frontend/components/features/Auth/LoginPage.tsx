@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/card";
 import { loginUser, loginAsGuest, LoginPayload } from "@/api/auth/auth.api";
 import { useAppStore } from "@/store/useAppStore";
+import { useGoogleAuth } from "@/hooks/useGoogleAuth";
+import { toast } from "sonner";
 
 interface LoginPageProps {
   onGoogleLogin?: () => void;
@@ -32,6 +34,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
   const [isGuestLoading, setIsGuestLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const { handleGoogleLogin, isGoogleLoading } = useGoogleAuth();
 
   const {
     register,
@@ -46,30 +49,33 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
     if (result.success && result.data) {
       setAuth(result.data.user, result.data.token);
-
+      toast.success("Welcome back!", {
+        description: `Signed in as ${result.data.user.name || result.data.user.email}.`,
+      });
       router.push("/dashboard/projects");
     } else {
-      setErrorMessage(result.message || "Invalid email or password.");
+      const errorMsg = result.message || "Invalid email or password.";
+      setErrorMessage(errorMsg);
+      toast.error(errorMsg);
     }
   };
 
-  const handleGuestLogin = async () => {
-    setErrorMessage(null);
-    setIsGuestLoading(true);
-
-    const result = await loginAsGuest();
-
-    setIsGuestLoading(false);
-
-    if (result.success && result.data) {
-      setAuth(result.data.user, result.data.token);
-      router.push("/dashboard/projects");
-    } else {
-      setErrorMessage(result.message || "Failed to initialize guest session.");
+  const onGoogleClick = async () => {
+    try {
+      if (onGoogleLogin) {
+        onGoogleLogin();
+      } else {
+        await handleGoogleLogin();
+        toast.success("Welcome back!", {
+          description: "Successfully signed in with Google.",
+        });
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Google sign-in failed. Please try again.");
     }
   };
 
-  const isLoading = isSubmitting || isGuestLoading;
+  const isLoading = isSubmitting || isGuestLoading || isGoogleLoading;
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4 sm:p-6">
@@ -211,9 +217,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             <Button
               type="button"
               variant="outline"
-              onClick={onGoogleLogin}
+              onClick={onGoogleClick}
               disabled={isLoading}
-              className="h-12 w-full gap-2 rounded-full border-border/80 bg-background text-sm font-medium transition-colors hover:bg-accent"
+              className="h-12 w-full gap-2 rounded-full border-border/80 bg-background text-sm font-medium transition-colors hover:bg-accent disabled:opacity-50"
             >
               <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
                 <path
@@ -233,7 +239,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   fill="#EA4335"
                 />
               </svg>
-              Login with Google
+              {isGoogleLoading ? "Connecting..." : "Login with Google"}
             </Button>
           </div>
         </CardContent>

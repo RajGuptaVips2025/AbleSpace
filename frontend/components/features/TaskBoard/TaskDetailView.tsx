@@ -1,446 +1,549 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { useAppStore } from "@/store/useAppStore";
+import { PriorityType, TaskStatusType } from "@/types/entity.types";
 import {
-  Lock,
-  Eye,
-  Share2,
-  MoreHorizontal,
-  Sidebar,
-  Calendar,
-  Tag,
-  Paperclip,
-  ChevronDown,
-  Plus,
-  SignalHigh,
-  SignalMedium,
-  SignalLow,
-  SignalZero,
-  Send,
-  Smile,
-  Settings,
-  Users,
-  Check,
-} from "lucide-react";
-
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+  CreateEntityDialog,
+  FieldConfig,
+} from "@/components/common/Dialog/CreateEntityDialog";
+import { FolderKanban } from "lucide-react";
+import EntityDetailView from "@/components/common/Dashboard/EntityDetailView";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Input } from "@/components/ui/input";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Task } from "@/api/tasks/task.api";
 
-export const TaskDetailView: React.FC = () => {
-  const [priority, setPriority] = useState<string>("Urgent");
+interface TaskDetailViewProps {
+  taskId: string;
+}
 
-  const renderPriorityIcon = (level: string) => {
-    switch (level) {
-      case "Urgent":
-      case "High":
-        return <SignalHigh className="h-3.5 w-3.5 text-rose-500" />;
-      case "Medium":
-        return <SignalMedium className="h-3.5 w-3.5 text-amber-500" />;
-      case "Low":
-        return <SignalLow className="h-3.5 w-3.5 text-slate-400" />;
-      default:
-        return <SignalZero className="h-3.5 w-3.5 text-slate-300" />;
+const STATUSES: { label: TaskStatusType; color: string }[] = [
+  { label: "Backlog", color: "bg-orange-500 text-orange-500" },
+  { label: "To Do", color: "bg-blue-500 text-blue-500" },
+  { label: "Doing", color: "bg-amber-500 text-amber-500" },
+  { label: "Completed", color: "bg-emerald-500 text-emerald-500" },
+  { label: "On Hold", color: "bg-neutral-500 text-neutral-500" },
+];
+
+export const TaskDetailView: React.FC<TaskDetailViewProps> = ({ taskId }) => {
+  const router = useRouter();
+
+  const user = useAppStore((state) => state.user);
+  const projects = useAppStore((state) => state.projects); 
+  const fetchUserProjects = useAppStore((state) => state.fetchUserProjects);
+  const currentTask = useAppStore((state) => state.currentTask);
+  const subtasks = useAppStore((state) => state.subtasks);
+  const isTasksLoading = useAppStore((state) => state.isTasksLoading);
+  const fetchTaskById = useAppStore((state) => state.fetchTaskById);
+  const fetchSubtasks = useAppStore((state) => state.fetchSubtasks);
+  const addTask = useAppStore((state) => state.addTask);
+  const editTask = useAppStore((state) => state.editTask);
+  const removeTask = useAppStore((state) => state.removeTask);
+  const addCommentToTask = useAppStore((state) => state.addCommentToTask);
+  const clearCurrentTask = useAppStore((state) => state.clearCurrentTask);
+
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isSubtaskModalOpen, setIsSubtaskModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [subtaskToEdit, setSubtaskToEdit] = useState<Task | null>(null);
+  const [subtaskToDelete, setSubtaskToDelete] = useState<Task | null>(null);
+  const [isDeletingSubtask, setIsDeletingSubtask] = useState(false);
+
+  useEffect(() => {
+    if (taskId) {
+      fetchTaskById(taskId);
+      fetchSubtasks(taskId);
+    }
+    if (user?.id) {
+      fetchUserProjects(user.id);
+    }
+
+    return () => {
+      clearCurrentTask();
+    };
+  }, [
+    taskId,
+    user?.id,
+    fetchTaskById,
+    fetchSubtasks,
+    fetchUserProjects,
+    clearCurrentTask,
+  ]);
+
+  const formatToLocalDateStr = (dateInput?: string | Date | null): string => {
+    if (!dateInput) return "";
+
+    if (
+      typeof dateInput === "string" &&
+      /^\d{4}-\d{2}-\d{2}$/.test(dateInput.trim())
+    ) {
+      return dateInput.trim();
+    }
+
+    const d = new Date(dateInput);
+    if (isNaN(d.getTime())) return "";
+
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const taskFormFields: FieldConfig[] = useMemo(() => {
+    const todayStr = formatToLocalDateStr(new Date());
+    const maxDateStr = currentTask?.due_date
+      ? formatToLocalDateStr(currentTask.due_date)
+      : undefined;
+
+    return [
+      {
+        name: "title",
+        label: "Title",
+        type: "text",
+        required: "Title is required", 
+        placeholder: "Add subtask title here",
+        colSpan: 2,
+      },
+      {
+        name: "description",
+        label: "Description",
+        type: "textarea",
+        placeholder: "Add subtask description here",
+        colSpan: 2,
+      },
+      {
+        name: "status",
+        label: "Status",
+        type: "select",
+        defaultValue: "To Do",
+        required: "Status is required",
+        colSpan: 1,
+        options: STATUSES.map((s) => ({ label: s.label, value: s.label })),
+      },
+      {
+        name: "priority",
+        label: "Priority",
+        type: "select",
+        defaultValue: "No Priority",
+        required: "Priority is required",
+        colSpan: 1,
+        options: [
+          { label: "No Priority", value: "No Priority" },
+          { label: "Urgent", value: "Urgent" },
+          { label: "High", value: "High" },
+          { label: "Medium", value: "Medium" },
+          { label: "Low", value: "Low" },
+        ],
+      },
+      {
+        name: "due_date",
+        label: maxDateStr ? `Due Date (Max: ${maxDateStr})` : "Due Date",
+        type: "date",
+        required: "Due date is required", 
+        min: todayStr,
+        max: maxDateStr,
+        colSpan: 2,
+      },
+      {
+        name: "labels",
+        label: "Labels",
+        type: "tags",
+        defaultValue: [],
+        colSpan: 2,
+      },
+      {
+        name: "resources",
+        label: "Resources",
+        type: "list",
+        defaultValue: [],
+        colSpan: 2,
+      },
+    ];
+  }, [currentTask?.due_date]);
+
+  const editTaskFields: FieldConfig[] = useMemo(() => {
+    const todayStr = formatToLocalDateStr(new Date());
+    const parentProject = projects.find(
+      (p) => p.id === currentTask?.project_id,
+    );
+    const maxProjectDateStr = parentProject?.due_date
+      ? formatToLocalDateStr(parentProject.due_date)
+      : undefined;
+    return [
+      {
+        name: "title",
+        label: "Title",
+        type: "text",
+        required: "Title is required",
+        placeholder: "Task title",
+        colSpan: 2,
+      },
+      {
+        name: "description",
+        label: "Description",
+        type: "textarea",
+        placeholder: "Task description...",
+        colSpan: 2,
+      },
+      {
+        name: "status",
+        label: "Status",
+        type: "select",
+        defaultValue: "To Do",
+        required: "Status is required",
+        colSpan: 1,
+        options: STATUSES.map((s) => ({ label: s.label, value: s.label })),
+      },
+      {
+        name: "priority",
+        label: "Priority",
+        type: "select",
+        defaultValue: "No Priority",
+        required: "Priority is required",
+        colSpan: 1,
+        options: [
+          { label: "No Priority", value: "No Priority" },
+          { label: "Urgent", value: "Urgent" },
+          { label: "High", value: "High" },
+          { label: "Medium", value: "Medium" },
+          { label: "Low", value: "Low" },
+        ],
+      },
+      {
+        name: "due_date",
+        label: maxProjectDateStr
+          ? `Due Date (Project Deadline: ${maxProjectDateStr})`
+          : "Due Date",
+        type: "date",
+        required: "Due date is required",
+        min: todayStr,
+        max: maxProjectDateStr,
+        colSpan: 2,
+      },
+      {
+        name: "labels",
+        label: "Labels",
+        type: "tags",
+        defaultValue: [],
+        colSpan: 2,
+      },
+      {
+        name: "resources",
+        label: "Resources",
+        type: "list",
+        defaultValue: [],
+        colSpan: 2,
+      },
+    ];
+  }, [projects, currentTask?.project_id]);
+
+  const handleEditSubmit = async (formData: any) => {
+    if (!currentTask) return;
+
+    try {
+      const updated = await editTask(currentTask.task_id, {
+        title: formData.title,
+        description: formData.description || "",
+        status: formData.status,
+        priority: formData.priority,
+        due_date: formData.due_date ? formData.due_date : null,
+        labels: formData.labels || [],
+        resources: formData.resources || [],
+      } as any);
+
+      if (updated) {
+        toast.success("Task updated!");
+        setIsEditDialogOpen(false);
+      } else {
+        throw new Error(
+          "Failed to update task. Please check the entered details.",
+        );
+      }
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to update task",
+      );
+      throw error;
+    }
+  };
+
+  const handleCreateSubtask = async (formData: any) => {
+    if (!currentTask) return;
+
+    try {
+      const newSubtask = await addTask({
+        project_id: currentTask.project_id,
+        parent_id: currentTask.task_id,
+        title: formData.title,
+        description: formData.description || "",
+        status: formData.status || "To Do",
+        priority: formData.priority || "No Priority",
+        due_date: formData.due_date ? formData.due_date : null,
+        labels: formData.labels || [],
+        resources: formData.resources || [],
+      } as any);
+
+      if (newSubtask) {
+        toast.success(`Subtask "${formData.title}" created!`);
+        setIsSubtaskModalOpen(false);
+        await fetchSubtasks(currentTask.task_id);
+      } else {
+        throw new Error(
+          "Failed to create subtask. Please check the entered details.",
+        );
+      }
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "An error occurred while creating the subtask",
+      );
+      throw error;
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!currentTask) return;
+    try {
+      setIsDeleting(true);
+      const success = await removeTask(currentTask.task_id);
+      if (success) {
+        toast.success("Task deleted");
+        router.push("/dashboard/tasks");
+      } else {
+        toast.error("Failed to delete task");
+      }
+    } finally {
+      setIsDeleting(false);
     }
   };
 
   return (
-    <div className="flex flex-1 flex-col h-full w-full bg-background overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6">
+    <EntityDetailView
+      title={currentTask?.title || ""}
+      description={currentTask?.description}
+      isLoading={isTasksLoading && !currentTask}
+      emptyMessage="Task not found"
+      onEditClick={() => setIsEditDialogOpen(true)}
+      onDeleteClick={handleDelete}
+      isDeleting={isDeleting}
+      deleteTitle="Delete Task"
+      deleteDescription={`Are you sure you want to permanently delete "${currentTask?.title}" and its subtasks?`}
+      primaryBadge={{
+        icon: FolderKanban,
+        text: currentTask?.project_name || "Project",
+      }}
+      labels={currentTask?.labels || []}
+      resources={currentTask?.resources || []}
+      tableTitle="Subtasks"
+      tableItems={subtasks.map((st) => ({
+        id: st.task_id,
+        title: st.title,
+        priority: st.priority,
+        creatorName: st.creator_name || user?.name,
+        creatorAvatar: user?.avatar_url || undefined,
+        creatorFallback: user?.fallback_initials,
+        dueDate: st.due_date,
+        onEdit: () => setSubtaskToEdit(st),
+        onDelete: () => setSubtaskToDelete(st),
+      }))}
+      isTableLoading={isTasksLoading}
+      emptyTableMessage="No subtasks created for this task yet."
+      onAddTableItem={() => setIsSubtaskModalOpen(true)}
+      addTableItemText="Add Subtask"
+      comments={currentTask?.comments || []}
+      isSubmittingComment={isSubmittingComment}
+      onAddComment={async (text) => {
+        if (!currentTask) return;
+        setIsSubmittingComment(true);
+        const updated = await addCommentToTask(currentTask.task_id, text);
+        setIsSubmittingComment(false);
+        if (updated) {
+          toast.success("Comment added");
+        } else {
+          toast.error("Failed to add comment");
+        }
+      }}
+      status={currentTask?.status || "To Do"}
+      statusOptions={STATUSES}
+      onStatusChange={async (st) => {
+        if (currentTask) {
+          await editTask(currentTask.task_id, { status: st });
+        }
+      }}
+      priority={currentTask?.priority || "No Priority"}
+      onPriorityChange={async (pr) => {
+        if (currentTask) {
+          await editTask(currentTask.task_id, { priority: pr });
+        }
+      }}
+      creatorName={currentTask?.creator_name || user?.name}
+      creatorAvatar={user?.avatar_url || undefined}
+      creatorInitials={user?.fallback_initials}
+      createdAt={currentTask?.created_at}
+      dueDate={currentTask?.due_date}
+      maxDueDate={
+        projects.find((p) => p.id === currentTask?.project_id)?.due_date
+      }
+      onDueDateChange={async (dateStr: string) => {
+        if (!currentTask || !dateStr) return;
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-          Write API Documentation
-        </h1>
+        const parentProject = projects.find(
+          (p) => p.id === currentTask.project_id,
+        );
+        const maxProjectDateStr = parentProject?.due_date
+          ? formatToLocalDateStr(parentProject.due_date)
+          : undefined;
 
-        <div className="flex items-center gap-1.5 shrink-0">
-          <Button variant="outline" size="icon" className="h-8 w-8">
-            <Lock className="h-4 w-4 text-muted-foreground" />
-          </Button>
-          <Button variant="outline" size="sm" className="h-8 gap-1 text-xs">
-            <Eye className="h-3.5 w-3.5 text-indigo-500" />
-            <span>1</span>
-          </Button>
-          <Button variant="outline" size="icon" className="h-8 w-8">
-            <Share2 className="h-4 w-4 text-muted-foreground" />
-          </Button>
-          <Button variant="outline" size="icon" className="h-8 w-8">
-            <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
-          </Button>
-          <Button variant="outline" size="icon" className="h-8 w-8">
-            <Sidebar className="h-4 w-4 text-muted-foreground" />
-          </Button>
+        if (maxProjectDateStr && dateStr > maxProjectDateStr) {
+          toast.error(
+            `Due date cannot be after the project deadline (${maxProjectDateStr})`,
+          );
+          return;
+        }
+
+        try {
+          const ok = await editTask(currentTask.task_id, {
+            due_date: dateStr,
+          });
+          if (ok) {
+            toast.success("Due date updated");
+            await fetchTaskById(currentTask.task_id);
+          } else {
+            toast.error("Failed to update due date");
+          }
+        } catch (err) {
+          toast.error(
+            err instanceof Error ? err.message : "Failed to update due date",
+          );
+        }
+      }}
+      sidebarExtraRows={
+        <div className="flex items-center justify-between py-1 text-xs">
+          <span className="text-muted-foreground">Project</span>
+          <span className="font-medium text-foreground">
+            {currentTask?.project_name || "General"}
+          </span>
         </div>
-      </div>
+      }
+    >
 
-      <p className="text-sm text-muted-foreground max-w-3xl leading-relaxed">
-        Create clear and detailed API documentation to guide developers in using the
-        inventory and sales metrics features effectively.
-      </p>
+      {currentTask && (
+        <CreateEntityDialog
+          isOpen={isEditDialogOpen}
+          onClose={() => setIsEditDialogOpen(false)}
+          mode="edit"
+          title="Edit Task"
+          submitButtonText="Save Changes"
+          fields={editTaskFields}
+          initialData={{
+            title: currentTask.title,
+            description: currentTask.description || "",
+            status: currentTask.status,
+            priority: currentTask.priority,
+            due_date: formatToLocalDateStr(currentTask.due_date),
+            labels: currentTask.labels || [],
+            resources: currentTask.resources || [],
+          }}
+          onSubmit={handleEditSubmit}
+        />
+      )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-        <div className="lg:col-span-2 space-y-8">
-          <div className="space-y-3 text-xs">
-            <div className="flex items-center gap-4">
-              <span className="w-20 text-muted-foreground font-medium">Properties</span>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="gap-1.5 font-normal py-0.5">
-                  <span className="font-semibold text-foreground">A</span>
-                  <span>Designer</span>
-                </Badge>
-                <Badge variant="secondary" className="gap-1 font-normal text-rose-500 bg-rose-500/10">
-                  <Calendar className="h-3 w-3" />
-                  <span>31 Jul</span>
-                </Badge>
-              </div>
-            </div>
+      <CreateEntityDialog
+        isOpen={isSubtaskModalOpen}
+        onClose={() => setIsSubtaskModalOpen(false)}
+        mode="create"
+        title="Add Subtask"
+        submitButtonText="Create Subtask"
+        fields={taskFormFields}
+        onSubmit={handleCreateSubtask}
+      />
 
-            <div className="flex items-center gap-4">
-              <span className="w-20 text-muted-foreground font-medium">Labels</span>
-              <div className="flex flex-wrap gap-1.5">
-                {["Research", "Design", "Development", "Testing", "Deployment"].map((label) => (
-                  <Badge
-                    key={label}
-                    variant="secondary"
-                    className="gap-1 font-normal text-[11px] text-muted-foreground bg-muted hover:bg-muted/80"
-                  >
-                    <Tag className="h-2.5 w-2.5" />
-                    {label}
-                  </Badge>
-                ))}
-              </div>
-            </div>
+      {subtaskToEdit && (
+        <CreateEntityDialog
+          isOpen={!!subtaskToEdit}
+          onClose={() => setSubtaskToEdit(null)}
+          mode="edit"
+          title="Edit Subtask"
+          submitButtonText="Save Changes"
+          fields={taskFormFields}
+          initialData={{
+            title: subtaskToEdit.title,
+            description: subtaskToEdit.description || "",
+            status: subtaskToEdit.status,
+            priority: subtaskToEdit.priority,
+            due_date: formatToLocalDateStr(subtaskToEdit.due_date),
+            labels: subtaskToEdit.labels || [],
+            resources: subtaskToEdit.resources || [],
+          }}
+          onSubmit={async (formData) => {
+            if (!currentTask) return;
+            const ok = await editTask(subtaskToEdit.task_id, formData);
+            if (ok) {
+              toast.success("Subtask updated!");
+              setSubtaskToEdit(null);
+              fetchSubtasks(currentTask.task_id);
+            }
+          }}
+        />
+      )}
 
-            <div className="flex items-center gap-4">
-              <span className="w-20 text-muted-foreground font-medium">Resources</span>
-              <button className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors">
-                <Paperclip className="h-3.5 w-3.5" />
-                <span>Add document or link...</span>
-              </button>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex items-center gap-1 text-sm font-semibold text-foreground">
-              <ChevronDown className="h-4 w-4" />
-              <span>Subtasks</span>
-            </div>
-
-            <div className="w-full overflow-x-auto rounded-lg border border-border bg-card">
-              <Table>
-                <TableHeader className="bg-muted/30">
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead className="text-xs font-medium text-foreground">Task</TableHead>
-                    <TableHead className="text-xs font-medium text-foreground">Priority</TableHead>
-                    <TableHead className="text-xs font-medium text-foreground">Members</TableHead>
-                    <TableHead className="text-xs font-medium text-foreground">Due Date</TableHead>
-                    <TableHead className="text-right text-xs font-medium text-foreground">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  <TableRow>
-                    <TableCell className="font-medium text-xs">Subtask 1</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1 text-xs text-rose-500 font-medium">
-                        <SignalHigh className="h-3.5 w-3.5" /> High
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Avatar className="h-5 w-5">
-                        <AvatarImage src="https://github.com/shadcn.png" />
-                        <AvatarFallback>DX</AvatarFallback>
-                      </Avatar>
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">12 Sep 2026</TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground">
-                        <MoreHorizontal className="h-3.5 w-3.5" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-
-                  <TableRow>
-                    <TableCell className="font-medium text-xs">Subtask 2</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1 text-xs text-slate-400 font-medium">
-                        <SignalLow className="h-3.5 w-3.5" /> Low
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground font-medium">CN</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">15 Sep 2026</TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground">
-                        <MoreHorizontal className="h-3.5 w-3.5" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-
-                  <TableRow>
-                    <TableCell className="font-medium text-xs">Subtask 3</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1 text-xs text-amber-500 font-medium">
-                        <SignalMedium className="h-3.5 w-3.5" /> Medium
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground font-medium">+</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">18 Sep 2026</TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground">
-                        <MoreHorizontal className="h-3.5 w-3.5" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-
-                  <TableRow className="hover:bg-transparent">
-                    <TableCell colSpan={5} className="p-2">
-                      <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-muted-foreground">
-                        <Plus className="h-3.5 w-3.5" /> Add Subtasks
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </div>
-          </div>
-
-          <div className="space-y-4 pt-2">
-            <h2 className="text-sm font-semibold text-foreground">Activity</h2>
-
-            <Card className="border border-border/80 shadow-xs">
-              <CardHeader className="p-3 pb-0 flex-row items-center justify-between space-y-0">
-                <div className="flex items-center gap-2">
-                  <Avatar className="h-6 w-6">
-                    <AvatarImage src="https://github.com/shadcn.png" />
-                    <AvatarFallback>AD</AvatarFallback>
-                  </Avatar>
-                  <span className="text-xs font-semibold text-foreground">Ankit Dutta</span>
-                  <span className="text-[11px] text-muted-foreground">just now</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground">
-                    <Smile className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground">
-                    <MoreHorizontal className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </CardHeader>
-
-              <CardContent className="p-3 space-y-3">
-                <p className="text-xs text-foreground">dsds</p>
-
-                <div className="flex items-center gap-2 border-t border-border/60 pt-2">
-                  <Avatar className="h-5 w-5">
-                    <AvatarImage src="https://github.com/shadcn.png" />
-                    <AvatarFallback>DX</AvatarFallback>
-                  </Avatar>
-                  <Input
-                    placeholder="Leave a reply..."
-                    className="h-8 text-xs border-0 focus-visible:ring-0 shadow-none px-1"
-                  />
-                  <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground shrink-0">
-                    <Paperclip className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground shrink-0">
-                    <Send className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-            <div className="flex items-center gap-2 rounded-lg border border-border/80 bg-card p-2 shadow-xs">
-              <Input
-                placeholder="Add a comment..."
-                className="h-8 text-xs border-0 focus-visible:ring-0 shadow-none px-2"
-              />
-              <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground shrink-0">
-                <Paperclip className="h-3.5 w-3.5" />
-              </Button>
-              <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground shrink-0">
-                <Send className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-6">
-          <Card className="border border-border/80 shadow-xs relative">
-            <CardHeader className="p-3.5 pb-2 flex-row items-center justify-between space-y-0">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                <ChevronDown className="h-3.5 w-3.5" />
-                <span>Details</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground">
-                  <Plus className="h-3.5 w-3.5" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground">
-                  <Settings className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </CardHeader>
-
-            <CardContent className="p-3.5 pt-0 space-y-3 text-xs">
-              <div className="flex items-center justify-between py-1">
-                <span className="text-muted-foreground">Status</span>
-                <div className="flex items-center gap-1.5 font-medium text-amber-500">
-                  <span className="h-2 w-2 rounded-full bg-amber-500" />
-                  <span>Backlog</span>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between py-1">
-                <span className="text-muted-foreground">Priority</span>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-7 gap-1 px-2 text-xs font-medium text-rose-500 hover:bg-muted">
-                      <SignalHigh className="h-3.5 w-3.5" />
-                      <span>{priority}</span>
-                      <ChevronDown className="h-3 w-3 text-muted-foreground ml-1" />
-                    </Button>
-                  </PopoverTrigger>
-
-                  <PopoverContent className="w-48 p-2 shadow-lg" align="end">
-                    <span className="text-[11px] font-medium text-muted-foreground px-2 py-1 block">
-                      Priority
-                    </span>
-                    <div className="space-y-0.5 pt-1">
-                      {[
-                        { label: "No Priority", icon: SignalZero, color: "text-slate-400" },
-                        { label: "Urgent", icon: SignalHigh, color: "text-rose-500" },
-                        { label: "High", icon: SignalHigh, color: "text-orange-500" },
-                        { label: "Medium", icon: SignalMedium, color: "text-amber-500" },
-                        { label: "Low", icon: SignalLow, color: "text-slate-400" },
-                      ].map((item) => {
-                        const ItemIcon = item.icon;
-                        const isSelected = priority === item.label;
-
-                        return (
-                          <button
-                            key={item.label}
-                            onClick={() => setPriority(item.label)}
-                            className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
-                              isSelected ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/50"
-                            }`}
-                          >
-                            <div className="flex items-center gap-2">
-                              <ItemIcon className={`h-3.5 w-3.5 ${item.color}`} />
-                              <span className={item.color}>{item.label}</span>
-                            </div>
-                            {isSelected && <Check className="h-3.5 w-3.5 text-foreground" />}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              <div className="flex items-center justify-between py-1">
-                <span className="text-muted-foreground">Members</span>
-                <button className="flex items-center gap-1 text-foreground font-medium hover:underline">
-                  <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span>Add members</span>
-                </button>
-              </div>
-
-              <div className="flex items-center justify-between py-1">
-                <span className="text-muted-foreground">Dates</span>
-                <div className="flex items-center gap-1">
-                  <Badge variant="outline" className="gap-1 font-normal py-0.5 text-[11px]">
-                    <Calendar className="h-3 w-3 text-muted-foreground" /> Jan 10
-                  </Badge>
-                  <span className="text-muted-foreground">→</span>
-                  <Badge variant="outline" className="gap-1 font-normal py-0.5 text-[11px]">
-                    <Calendar className="h-3 w-3 text-muted-foreground" /> End
-                  </Badge>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between py-1">
-                <span className="text-muted-foreground">Labels</span>
-                <div className="flex items-center gap-1">
-                  <Badge variant="secondary" className="gap-1 font-normal text-[11px]">
-                    <Tag className="h-2.5 w-2.5" /> Research
-                  </Badge>
-                  <Button variant="ghost" size="icon" className="h-5 w-5">
-                    <Plus className="h-3 w-3" />
-                  </Button>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between py-1">
-                <span className="text-muted-foreground">Teams</span>
-                <button className="flex items-center gap-1 text-foreground font-medium hover:underline">
-                  <Plus className="h-3 w-3 text-muted-foreground" />
-                  <span>New workspace</span>
-                </button>
-              </div>
-
-              <div className="flex items-center justify-between py-1">
-                <span className="text-muted-foreground">Reporter</span>
-                <div className="flex items-center gap-1.5">
-                  <Avatar className="h-4 w-4">
-                    <AvatarImage src="https://github.com/shadcn.png" />
-                    <AvatarFallback>Y</AvatarFallback>
-                  </Avatar>
-                  <span className="font-medium text-foreground">You</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border border-border/80 shadow-xs">
-            <CardHeader className="p-3.5 pb-2 flex-row items-center justify-between space-y-0">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                <ChevronDown className="h-3.5 w-3.5" />
-                <span>Updates</span>
-              </div>
-            </CardHeader>
-
-            <CardContent className="p-3.5 pt-1 space-y-3 text-xs">
-              <div className="flex items-start gap-2.5">
-                <div className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-rose-500/10 shrink-0">
-                  <SignalHigh className="h-3.5 w-3.5 text-rose-500" />
-                </div>
-                <div>
-                  <div className="font-semibold text-foreground">You</div>
-                  <p className="text-muted-foreground text-[11px]">
-                    changed priority from No priority to Ur...
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-2.5">
-                <Avatar className="h-6 w-6 shrink-0">
-                  <AvatarImage src="https://github.com/shadcn.png" />
-                  <AvatarFallback>Y</AvatarFallback>
-                </Avatar>
-                <div>
-                  <div className="font-semibold text-foreground">You</div>
-                  <p className="text-muted-foreground text-[11px]">
-                    posted an update · Aug 2026
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    </div>
+      <AlertDialog
+        open={!!subtaskToDelete}
+        onOpenChange={(open) => !open && setSubtaskToDelete(null)}
+      >
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-base">
+              Delete Subtask
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs">
+              Are you sure you want to permanently delete &quot;
+              {subtaskToDelete?.title}&quot;?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="pt-2">
+            <AlertDialogCancel
+              disabled={isDeletingSubtask}
+              className="h-8 text-xs"
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (!subtaskToDelete || !currentTask) return;
+                setIsDeletingSubtask(true);
+                try {
+                  const ok = await removeTask(subtaskToDelete.task_id);
+                  if (ok) {
+                    toast.success("Subtask deleted");
+                    fetchSubtasks(currentTask.task_id);
+                  }
+                } finally {
+                  setIsDeletingSubtask(false);
+                  setSubtaskToDelete(null);
+                }
+              }}
+              disabled={isDeletingSubtask}
+              className="h-8 text-xs bg-rose-600 hover:bg-rose-700 text-white"
+            >
+              {isDeletingSubtask ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </EntityDetailView>
   );
 };
 

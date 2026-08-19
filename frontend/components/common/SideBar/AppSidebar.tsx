@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { UserProfilePopover } from "@/components/common/PopOver/UserProfilePopover";
+import { useAppStore } from "@/store/useAppStore";
 
 interface NavItem {
   id: string;
@@ -46,6 +47,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
 }) => {
   const pathname = usePathname();
   const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(true);
+  const user = useAppStore((state) => state.user);
 
   return (
     <>
@@ -63,7 +65,15 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
       >
         <div className="flex h-16 w-full items-center justify-between p-2">
           <div className="flex-1 min-w-0">
-            <UserProfilePopover />
+
+            <UserProfilePopover
+              user={{
+                name: user?.name || "Admin",
+                email: user?.email || "admin@workspace.com",
+                avatarUrl: user?.avatar_url || undefined,
+                fallback: user?.fallback_initials || "U",
+              }}
+            />
           </div>
 
           {onToggleSidebar && (

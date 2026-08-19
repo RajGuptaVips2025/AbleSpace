@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/card";
 import { useGoogleAuth } from "@/hooks/useGoogleAuth";
 import Link from "next/link";
+import { toast } from "sonner";
 
 interface AuthCardProps {
   termsUrl?: string;
@@ -23,9 +24,19 @@ export const AuthCard: React.FC<AuthCardProps> = ({
 }) => {
   const { handleGoogleLogin, isGoogleLoading } = useGoogleAuth();
 
+  const onGoogleLogin = async () => {
+    try {
+      await handleGoogleLogin();
+      toast.success("Welcome back!", {
+        description: "Successfully signed in with Google.",
+      });
+    } catch (err: any) {
+      toast.error(err?.message || "Google sign-in failed. Please try again.");
+    }
+  };
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
-
       <div className="mb-6 flex items-center justify-center gap-2">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-black text-white">
           <svg
@@ -61,7 +72,6 @@ export const AuthCard: React.FC<AuthCardProps> = ({
         </CardHeader>
 
         <CardContent className="mt-6 flex flex-col gap-3 p-0">
-
           <Link
             href="/login"
             replace
@@ -73,7 +83,7 @@ export const AuthCard: React.FC<AuthCardProps> = ({
           <Button
             type="button"
             variant="outline"
-            onClick={handleGoogleLogin}
+            onClick={onGoogleLogin}
             disabled={isGoogleLoading}
             className="h-12 w-full gap-2 rounded-full border-border/80 bg-background text-sm font-medium transition-colors hover:bg-accent disabled:opacity-50"
           >
@@ -99,7 +109,29 @@ export const AuthCard: React.FC<AuthCardProps> = ({
             {isGoogleLoading ? "Connecting..." : "Login with Google"}
           </Button>
         </CardContent>
+
+        <div className=" flex flex-col gap-1.5 border-t border-border/70 pt-4 text-center text-xs text-muted-foreground">
+          <p>
+            Already have an account?{" "}
+            <Link
+              href="/login"
+              className="font-medium text-foreground underline underline-offset-4 hover:text-neutral-700 dark:hover:text-neutral-300"
+            >
+              Log in
+            </Link>
+          </p>
+          <p>
+            Want to create an account?{" "}
+            <Link
+              href="/register"
+              className="font-medium text-foreground underline underline-offset-4 hover:text-neutral-700 dark:hover:text-neutral-300"
+            >
+              Sign up
+            </Link>
+          </p>
+        </div>
       </Card>
+
 
       <p className="mt-6 max-w-[280px] text-center text-xs leading-relaxed text-muted-foreground">
         By clicking continue, you agree to our{" "}

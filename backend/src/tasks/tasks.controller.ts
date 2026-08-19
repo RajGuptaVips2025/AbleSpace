@@ -73,6 +73,16 @@ export class TasksController {
     );
   }
 
+  @Post(':id/subtasks')
+  async createSubtask(
+    @Param('id') parentId: string,
+    @Body() dto: CreateTaskDto,
+    @Req() req: any,
+  ) {
+    const userId = req.user?.id || req.user?.userId;
+    return this.tasksService.createSubtask(parentId, dto, userId);
+  }
+
   @Get(':id/subtasks')
   findSubtasks(
     @Param('id') id: string,

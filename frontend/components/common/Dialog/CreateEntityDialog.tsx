@@ -22,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { toast } from "sonner";
 
 export type FieldType =
   | "text"
@@ -29,8 +30,8 @@ export type FieldType =
   | "number"
   | "date"
   | "select"
-  | "tags" 
-  | "list"; 
+  | "tags"
+  | "list";
 
 export interface SelectOption {
   label: string;
@@ -48,12 +49,13 @@ export interface FieldConfig {
   options?: SelectOption[];
   disabled?: boolean;
   disabledInEdit?: boolean;
-  colSpan?: 1 | 2; 
+  colSpan?: 1 | 2;
   rows?: number;
   icon?: React.ElementType;
   defaultValue?: any;
-  min?: string; 
-  max?: string; 
+  min?: string;
+  max?: string;
+  dynamicMax?: (formValues: Record<string, any>) => string | undefined;
 }
 
 export interface CreateEntityDialogProps {
@@ -63,7 +65,7 @@ export interface CreateEntityDialogProps {
   title?: string;
   description?: string;
   submitButtonText?: string;
-  fields?: FieldConfig[]; 
+  fields?: FieldConfig[];
   initialData?: Record<string, any> | null;
   onSubmit: (data: Record<string, any>) => Promise<void> | void;
 }
@@ -75,7 +77,7 @@ export const CreateEntityDialog: React.FC<CreateEntityDialogProps> = ({
   title,
   description,
   submitButtonText,
-  fields = [], 
+  fields = [],
   initialData,
   onSubmit,
 }) => {
@@ -87,7 +89,6 @@ export const CreateEntityDialog: React.FC<CreateEntityDialogProps> = ({
   >({});
   const [inputState, setInputState] = useState<Record<string, string>>({});
 
-  // 1. Safe default form values calculation
   const defaultValues = useMemo(() => {
     const defaults: Record<string, any> = {};
 
@@ -99,7 +100,11 @@ export const CreateEntityDialog: React.FC<CreateEntityDialogProps> = ({
 
       if (field.type === "date" && rawVal) {
         try {
-          defaults[field.name] = new Date(rawVal).toISOString().split("T")[0];
+          const d = new Date(rawVal);
+          const year = d.getFullYear();
+          const month = String(d.getMonth() + 1).padStart(2, "0");
+          const day = String(d.getDate()).padStart(2, "0");
+          defaults[field.name] = `${year}-${month}-${day}`;
         } catch {
           defaults[field.name] = rawVal;
         }
@@ -115,14 +120,19 @@ export const CreateEntityDialog: React.FC<CreateEntityDialogProps> = ({
     register,
     handleSubmit,
     control,
+    reset,
+    watch,
     formState: { errors },
   } = useForm<Record<string, any>>({
-    values: defaultValues,
+    defaultValues,
   });
 
-  // 2. Synchronize tag/list arrays safely
+  const formValues = watch();
+
   useEffect(() => {
     if (isOpen) {
+      reset(defaultValues);
+
       const initialArrays: Record<string, string[]> = {};
       const initialInputs: Record<string, string> = {};
 
@@ -140,17 +150,28 @@ export const CreateEntityDialog: React.FC<CreateEntityDialogProps> = ({
       setArrayFieldsState(initialArrays);
       setInputState(initialInputs);
     }
-  }, [isOpen, isEdit, initialData, fields]);
+  }, [isOpen, defaultValues, reset, isEdit, initialData, fields]);
 
   const handleAddItem = (fieldName: string) => {
     const value = (inputState[fieldName] || "").trim();
     if (!value) return;
 
-    setArrayFieldsState((prev) => {
-      const currentList = prev[fieldName] || [];
-      if (currentList.includes(value)) return prev;
-      return { ...prev, [fieldName]: [...currentList, value] };
-    });
+    const currentList = arrayFieldsState[fieldName] || [];
+
+    if (fieldName === "labels" && currentList.length >= 5) {
+      toast.error("You can add a maximum of 5 labels.");
+      return;
+    }
+
+    if (currentList.includes(value)) {
+      toast.info("This label has already been added.");
+      return;
+    }
+
+    setArrayFieldsState((prev) => ({
+      ...prev,
+      [fieldName]: [...currentList, value],
+    }));
 
     setInputState((prev) => ({ ...prev, [fieldName]: "" }));
   };
@@ -233,11 +254,17 @@ export const CreateEntityDialog: React.FC<CreateEntityDialogProps> = ({
                       placeholder={field.placeholder}
                       className="h-10 text-xs"
                       {...register(field.name, {
-                        required: field.required
-                          ? typeof field.required === "string"
-                            ? field.required
-                            : `${field.label} is required`
-                          : false,
+                        validate: (val) => {
+                          if (
+                            field.required &&
+                            (!val || String(val).trim().length === 0)
+                          ) {
+                            return typeof field.required === "string"
+                              ? field.required
+                              : `${field.label} is required`;
+                          }
+                          return true;
+                        },
                       })}
                     />
                   )}
@@ -249,77 +276,94 @@ export const CreateEntityDialog: React.FC<CreateEntityDialogProps> = ({
                       placeholder={field.placeholder}
                       className="text-xs resize-none"
                       {...register(field.name, {
-                        required: field.required
-                          ? typeof field.required === "string"
-                            ? field.required
-                            : `${field.label} is required`
-                          : false,
+                        validate: (val) => {
+                          if (
+                            field.required &&
+                            (!val || String(val).trim().length === 0)
+                          ) {
+                            return typeof field.required === "string"
+                              ? field.required
+                              : `${field.label} is required`;
+                          }
+                          return true;
+                        },
                       })}
                     />
                   )}
 
-                  {field.type === "date" && (
-                    <div className="relative">
-                      <Input
-                        type="date"
-                        min={
-                          field.min || new Date().toISOString().split("T")[0]
-                        } 
-                        max={field.max} 
-                        disabled={isDisabled}
-                        className="h-10 text-xs pl-8"
-                        {...register(field.name, {
-                          required: field.required
-                            ? typeof field.required === "string"
-                              ? field.required
-                              : `${field.label} is required`
-                            : false,
-                          validate: (val) => {
-                            if (!val) return true;
-                            const selected = new Date(val);
-                            const today = new Date();
-                            today.setHours(0, 0, 0, 0);
+                  {field.type === "date" &&
+                    (() => {
+                      const effectiveMax = field.dynamicMax
+                        ? field.dynamicMax(formValues)
+                        : field.max;
 
-                            if (selected < today) {
-                              return "Due date cannot be in the past";
+                      return (
+                        <div className="relative">
+                          <Input
+                            type="date"
+                            min={
+                              field.min ||
+                              new Date().toISOString().split("T")[0]
                             }
+                            max={effectiveMax}
+                            disabled={isDisabled}
+                            className="h-10 text-xs pl-8"
+                            {...register(field.name, {
+                              validate: (val) => {
+                                if (field.required && !val) {
+                                  return typeof field.required === "string"
+                                    ? field.required
+                                    : `${field.label} is required`;
+                                }
+                                if (!val) return true;
+                                const selected = new Date(val);
+                                const today = new Date();
+                                today.setHours(0, 0, 0, 0);
 
-                            if (field.max) {
-                              const [y, m, d] = field.max
-                                .split("-")
-                                .map(Number);
-                              const maxDate = new Date(
-                                y,
-                                m - 1,
-                                d,
-                                23,
-                                59,
-                                59,
-                                999,
-                              );
-                              if (selected > maxDate) {
-                                return `Due date cannot be later than project due date (${field.max})`;
-                              }
-                            }
+                                if (selected < today) {
+                                  return "Due date cannot be in the past";
+                                }
 
-                            return true;
-                          },
-                        })}
-                      />
-                      <Calendar className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground pointer-events-none" />
-                    </div>
-                  )}
+                                if (effectiveMax) {
+                                  const [y, m, d] = effectiveMax
+                                    .split("-")
+                                    .map(Number);
+                                  const maxDate = new Date(
+                                    y,
+                                    m - 1,
+                                    d,
+                                    23,
+                                    59,
+                                    59,
+                                    999,
+                                  );
+                                  if (selected > maxDate) {
+                                    return `Due date cannot be later than project due date (${effectiveMax})`;
+                                  }
+                                }
+
+                                return true;
+                              },
+                            })}
+                          />
+                          <Calendar className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground pointer-events-none" />
+                        </div>
+                      );
+                    })()}
 
                   {field.type === "select" && (
                     <Controller
                       name={field.name}
                       control={control}
                       rules={{
-                        required: field.required
-                          ? typeof field.required === "string"
-                            ? field.required
-                            : `${field.label} is required`
-                          : false,
+                        validate: (val) => {
+                          if (field.required && !val) {
+                            return typeof field.required === "string"
+                              ? field.required
+                              : `${field.label} is required`;
+                          }
+                          return true;
+                        },
                       }}
                       render={({ field: controllerField }) => {
                         const selectedOption = field.options?.find(
@@ -534,3 +578,5 @@ export const CreateEntityDialog: React.FC<CreateEntityDialogProps> = ({
     </Dialog>
   );
 };
+
+export default CreateEntityDialog;

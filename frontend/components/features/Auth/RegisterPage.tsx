@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -13,8 +13,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { registerUser, loginAsGuest, RegisterPayload } from "@/api/auth/auth.api";
+import {
+  registerUser,
+  loginAsGuest,
+  RegisterPayload,
+} from "@/api/auth/auth.api";
 import { useAppStore } from "@/store/useAppStore";
+import { useGoogleAuth } from "@/hooks/useGoogleAuth";
+import { toast } from "sonner";
 
 interface RegisterPageProps {
   onGoogleLogin?: () => void;
@@ -32,6 +38,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
 
   const [isGuestLoading, setIsGuestLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const { handleGoogleLogin, isGoogleLoading } = useGoogleAuth();
 
   const {
     register,
@@ -46,31 +53,34 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
 
     if (result.success && result.data) {
       setAuth(result.data.user, result.data.token);
+      toast.success("Account created successfully!", {
+        description: `Welcome to Pyramid, ${result.data.user.name}!`,
+      });
       router.push("/dashboard/projects");
     } else {
-      setErrorMessage(
-        result.message || "Registration failed. Please try again."
-      );
+      const errorMsg =
+        result.message || "Registration failed. Please try again.";
+      setErrorMessage(errorMsg);
+      toast.error(errorMsg);
     }
   };
 
-  const handleGuestLogin = async () => {
-    setErrorMessage(null);
-    setIsGuestLoading(true);
-
-    const result = await loginAsGuest();
-
-    setIsGuestLoading(false);
-
-    if (result.success && result.data) {
-      setAuth(result.data.user, result.data.token);
-      router.push("/dashboard/projects");
-    } else {
-      setErrorMessage(result.message || "Failed to initialize guest session.");
+  const onGoogleClick = async () => {
+    try {
+      if (onGoogleLogin) {
+        onGoogleLogin();
+      } else {
+        await handleGoogleLogin();
+        toast.success("Welcome!", {
+          description: "Successfully signed in with Google.",
+        });
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Google sign-in failed. Please try again.");
     }
   };
 
-  const isLoading = isSubmitting || isGuestLoading;
+  const isLoading = isSubmitting || isGuestLoading || isGoogleLoading;
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4 sm:p-6">
@@ -113,7 +123,10 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
             </div>
           )}
 
-          <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-3">
+          <form
+            onSubmit={handleSubmit(onSubmit)}
+            className="flex flex-col gap-3"
+          >
             <div className="space-y-1.5 text-left">
               <Label
                 htmlFor="register-name"
@@ -136,7 +149,9 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
                 })}
               />
               {errors.name && (
-                <p className="text-[11px] font-medium text-red-500">{errors.name.message}</p>
+                <p className="text-[11px] font-medium text-red-500">
+                  {errors.name.message}
+                </p>
               )}
             </div>
 
@@ -162,7 +177,9 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
                 })}
               />
               {errors.email && (
-                <p className="text-[11px] font-medium text-red-500">{errors.email.message}</p>
+                <p className="text-[11px] font-medium text-red-500">
+                  {errors.email.message}
+                </p>
               )}
             </div>
 
@@ -188,7 +205,9 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
                 })}
               />
               {errors.password && (
-                <p className="text-[11px] font-medium text-red-500">{errors.password.message}</p>
+                <p className="text-[11px] font-medium text-red-500">
+                  {errors.password.message}
+                </p>
               )}
             </div>
 
@@ -208,7 +227,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
             </span>
           </div>
 
-           <p className="my-4 text-center text-xs text-muted-foreground">
+          <p className="my-4 text-center text-xs text-muted-foreground">
             Already have an account?{" "}
             <button
               type="button"
@@ -223,9 +242,9 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
             <Button
               type="button"
               variant="outline"
-              onClick={onGoogleLogin}
+              onClick={onGoogleClick}
               disabled={isLoading}
-              className="h-12 w-full gap-2 rounded-full border-border/80 bg-background text-sm font-medium transition-colors hover:bg-accent"
+              className="h-12 w-full gap-2 rounded-full border-border/80 bg-background text-sm font-medium transition-colors hover:bg-accent disabled:opacity-50"
             >
               <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
                 <path
@@ -245,9 +264,8 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
                   fill="#EA4335"
                 />
               </svg>
-              Sign up with Google
+              {isGoogleLoading ? "Connecting..." : "Login With Google"}
             </Button>
-
           </div>
         </CardContent>
       </Card>

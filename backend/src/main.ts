@@ -17,8 +17,8 @@ async function bootstrap() {
   app.use(cookieParser());
 
   app.enableCors({
-    origin: ['http://localhost:3000'], // Your Next.js frontend origin
-    credentials: true,                // Matches withCredentials: true in Axios
+    origin: ['http://localhost:3000'], 
+    credentials: true,                
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   });

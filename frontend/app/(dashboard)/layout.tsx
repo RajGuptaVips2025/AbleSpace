@@ -1,12 +1,9 @@
 "use client";
 
 import React, { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation"; 
 import AppSidebar from "@/components/common/SideBar/AppSidebar";
-import {
-  SidebarProvider,
-  useSidebar,
-} from "@/context/SidebarContext";
+import { SidebarProvider, useSidebar } from "@/context/SidebarContext";
 import DashboardTopBar from "@/components/common/Dashboard/DashboardTopBar";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -14,6 +11,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   const { isSidebarOpen, toggleSidebar } = useSidebar();
   const { isAuthenticated, isHydrated } = useAppStore();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (isHydrated && !isAuthenticated) {
@@ -25,6 +23,18 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-background">
         <div className="h-6 w-6 animate-spin rounded-full border-2 border-neutral-900 border-t-transparent dark:border-white" />
+      </div>
+    );
+  }
+
+  const isSettingsPage =
+    pathname === "/dashboard/settings" ||
+    pathname?.startsWith("/dashboard/settings");
+
+  if (isSettingsPage) {
+    return (
+      <div className="h-screen w-full overflow-hidden bg-background">
+        {children}
       </div>
     );
   }

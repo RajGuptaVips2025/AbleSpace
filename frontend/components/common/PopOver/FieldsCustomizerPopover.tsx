@@ -1,58 +1,63 @@
 "use client";
 
-import React, { useState } from "react";
-import { Columns3, LayoutList, LayoutGrid } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Columns3, List, LayoutGrid, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
 
-export interface FieldToggleOption {
-  id: string;
-  label: string;
-  enabled: boolean;
+export interface VisibleFields {
+  priority: boolean;
+  dueDate: boolean;
+  labels: boolean;
+  status: boolean;
 }
 
-interface FieldsCustomizerPopoverProps {
+export const DEFAULT_VISIBLE_FIELDS: VisibleFields = {
+  priority: false,
+  dueDate: true,
+  labels: true,
+  status: false,
+};
+
+export interface FieldsCustomizerPopoverProps {
   currentView?: "list" | "board";
   onViewChange?: (view: "list" | "board") => void;
-  onFieldToggle?: (fieldId: string, enabled: boolean) => void;
+  visibleFields?: VisibleFields;
+  onToggleField?: (fieldKey: keyof VisibleFields) => void;
 }
-
-const initialFields: FieldToggleOption[] = [
-  { id: "priority", label: "Priority", enabled: false },
-  { id: "members-1", label: "Members", enabled: true },
-  { id: "dueDate", label: "Due Date", enabled: false },
-  { id: "members-2", label: "Members", enabled: true },
-  { id: "labels", label: "Labels", enabled: false },
-  { id: "status", label: "Status", enabled: false },
-  { id: "reporter", label: "Reporter", enabled: false },
-];
 
 export const FieldsCustomizerPopover: React.FC<
   FieldsCustomizerPopoverProps
-> = ({ currentView = "board", onViewChange, onFieldToggle }) => {
+> = ({
+  currentView = "board",
+  onViewChange,
+  visibleFields = DEFAULT_VISIBLE_FIELDS,
+  onToggleField,
+}) => {
   const [selectedView, setSelectedView] = useState<"list" | "board">(
     currentView,
   );
-  const [fields, setFields] = useState<FieldToggleOption[]>(initialFields);
+
+  useEffect(() => {
+    if (currentView) {
+      setSelectedView(currentView);
+    }
+  }, [currentView]);
+
+  const fieldsList: { key: keyof VisibleFields; label: string }[] = [
+    { key: "priority", label: "Priority" },
+    { key: "dueDate", label: "Due Date" },
+    { key: "labels", label: "Labels" },
+    { key: "status", label: "Status" },
+  ];
 
   const handleViewSelect = (view: "list" | "board") => {
     setSelectedView(view);
     if (onViewChange) onViewChange(view);
-  };
-
-  const handleCheckboxChange = (fieldId: string, checked: boolean) => {
-    setFields((prevFields) =>
-      prevFields.map((field) =>
-        field.id === fieldId ? { ...field, enabled: checked } : field,
-      ),
-    );
-    if (onFieldToggle) onFieldToggle(fieldId, checked);
   };
 
   return (
@@ -61,69 +66,73 @@ export const FieldsCustomizerPopover: React.FC<
         <Button
           variant="outline"
           size="sm"
-          className="h-8 gap-1.5 text-xs font-medium"
+          className="h-8 gap-1.5 rounded-lg px-2.5 sm:px-3 text-xs font-medium text-foreground hover:bg-muted"
         >
           <Columns3 className="h-3.5 w-3.5 text-muted-foreground" />
-          Fields
+          <span>Fields</span>
         </Button>
       </PopoverTrigger>
 
-      <PopoverContent className="w-56 p-3 shadow-md" align="end">
-        <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1 mb-3">
-          <Button
+      <PopoverContent
+        align="end"
+        sideOffset={8}
+        className="w-56 rounded-2xl p-2.5 shadow-xl border border-border bg-popover"
+      >
+        <div className="grid grid-cols-2 gap-1 rounded-xl bg-muted/80 p-1 mb-2">
+          <button
             type="button"
-            variant="ghost"
-            size="sm"
             onClick={() => handleViewSelect("list")}
-            className={`h-7 text-xs font-medium transition-colors ${
+            className={`flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-medium transition-all ${
               selectedView === "list"
-                ? "bg-background text-foreground shadow-xs hover:bg-background"
+                ? "bg-background text-foreground shadow-xs font-semibold"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            <LayoutList className="mr-1.5 h-3.5 w-3.5" />
-            List
-          </Button>
+            <List className="h-3.5 w-3.5" />
+            <span>List</span>
+          </button>
 
-          <Button
+          <button
             type="button"
-            variant="ghost"
-            size="sm"
             onClick={() => handleViewSelect("board")}
-            className={`h-7 text-xs font-medium transition-colors ${
+            className={`flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-medium transition-all ${
               selectedView === "board"
-                ? "bg-background text-foreground shadow-xs hover:bg-background"
+                ? "bg-background text-foreground shadow-xs font-semibold"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            <LayoutGrid className="mr-1.5 h-3.5 w-3.5" />
-            Board
-          </Button>
+            <LayoutGrid className="h-3.5 w-3.5" />
+            <span>Board</span>
+          </button>
         </div>
 
-        <div className="space-y-2 text-xs">
-          {fields.map((field) => (
-            <div
-              key={field.id}
-              className="flex items-center justify-between py-1 hover:bg-muted/50 px-1 rounded-md transition-colors cursor-pointer"
-              onClick={() => handleCheckboxChange(field.id, !field.enabled)}
-            >
-              <Label
-                htmlFor={`field-${field.id}`}
-                className="text-xs font-normal text-muted-foreground cursor-pointer"
+        <div className="space-y-0.5 pt-1">
+          {fieldsList.map((field) => {
+            const isChecked = !!visibleFields[field.key];
+
+            return (
+              <button
+                key={field.key}
+                type="button"
+                onClick={() => onToggleField && onToggleField(field.key)}
+                className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted/70 transition-colors select-none"
               >
-                {field.label}
-              </Label>
-              <Checkbox
-                id={`field-${field.id}`}
-                checked={field.enabled}
-                onCheckedChange={(checked) =>
-                  handleCheckboxChange(field.id, Boolean(checked))
-                }
-                className="h-4 w-4 rounded-[4px] data-[state=checked]:bg-black data-[state=checked]:text-white border-muted-foreground/30"
-              />
-            </div>
-          ))}
+                <span className="text-muted-foreground hover:text-foreground">
+                  {field.label}
+                </span>
+
+                <div
+                  className={`flex h-4 w-4 items-center justify-center rounded-[5px] border transition-all duration-150 ${
+                    isChecked
+                      ? "bg-neutral-900 border-neutral-900 text-white dark:bg-neutral-100 dark:border-neutral-100 dark:text-neutral-900"
+                      : "border-muted-foreground/30 bg-muted/40"
+                  }`}
+                >
+                  {isChecked && <Check className="h-3 w-3 stroke-[3]" />}
+                </div>
+              </button>
+            );
+          })}
         </div>
       </PopoverContent>
     </Popover>

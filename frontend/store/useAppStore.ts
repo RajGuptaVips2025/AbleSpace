@@ -14,8 +14,9 @@ import {
   ProjectSlice,
   createProjectSlice,
 } from "./slices/projectSlice";
+import { createTaskSlice, TaskSlice } from "./slices/taskSlice";
 
-export type RootStoreState = AuthSlice & ProjectSlice;
+export type RootStoreState = AuthSlice & ProjectSlice & TaskSlice;
 
 export const useAppStore = create<RootStoreState>()(
   devtools(
@@ -23,6 +24,7 @@ export const useAppStore = create<RootStoreState>()(
       (...a) => ({
         ...createAuthSlice(...a),
         ...createProjectSlice(...a),
+        ...createTaskSlice(...a),
       }),
       {
         name: "taskboard-app-storage",
@@ -35,14 +37,17 @@ export const useAppStore = create<RootStoreState>()(
           user: state.user,
           token: state.token,
           isAuthenticated: state.isAuthenticated,
-
           projects: state.projects,
           currentProject: state.currentProject,
+          tasks: state.tasks,
+          currentTask: state.currentTask,
         }),
 
         onRehydrateStorage: () => (state) => {
           state?.setHydrated(true);
         },
+
+        
       }
     ),
 

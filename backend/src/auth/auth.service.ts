@@ -39,7 +39,7 @@ export class AuthService {
       fallback_initials,
       is_guest
     )
-    VALUES ($1, $2, $3, $4, true)  -- 👈 Set to TRUE for standard registration
+    VALUES ($1, $2, $3, $4, true)  
     RETURNING
       id,
       name,

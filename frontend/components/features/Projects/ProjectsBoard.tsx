@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   MoreHorizontal,
   Loader2,
@@ -16,6 +16,10 @@ import {
   Signal,
   SignalMedium,
   SignalLow,
+  Columns3,
+  Check,
+  Calendar,
+  X,
 } from "lucide-react";
 import {
   Table,
@@ -29,10 +33,14 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuCheckboxItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -57,6 +65,32 @@ interface ProjectsBoardProps {
   onSelectProject?: (projectId: string) => void;
 }
 
+interface ProjectVisibleColumns {
+  status: boolean;
+  priority: boolean;
+  team: boolean;
+  dueDate: boolean;
+}
+
+const DEFAULT_PROJECT_COLUMNS: ProjectVisibleColumns = {
+  status: true,
+  priority: true,
+  team: true,
+  dueDate: true,
+};
+
+interface ProjectFilters {
+  status: string;
+  priority: string;
+  dueBefore: string;
+}
+
+const DEFAULT_PROJECT_FILTERS: ProjectFilters = {
+  status: "all",
+  priority: "all",
+  dueBefore: "",
+};
+
 const priorityStyles: Record<string, string> = {
   High: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20",
   Medium:
@@ -67,7 +101,6 @@ const priorityStyles: Record<string, string> = {
   Urgent: "bg-red-600/10 text-red-700 dark:text-red-400 border-red-600/20",
 };
 
-// 🌟 Schema configuration for projects
 const PROJECT_FIELDS: FieldConfig[] = [
   {
     name: "name",
@@ -144,6 +177,7 @@ const PROJECT_FIELDS: FieldConfig[] = [
     label: "Team",
     type: "text",
     placeholder: "e.g. Designer, Engineering",
+    required: "Team name is required",
     colSpan: 1,
   },
   {
@@ -155,10 +189,12 @@ const PROJECT_FIELDS: FieldConfig[] = [
   },
   {
     name: "labels",
-    label: "Custom Labels",
+    label: "Custom Labels (Max 5)",
     type: "tags",
     placeholder: "Type label and press Add or Enter...",
     defaultValue: [],
+    validate: (value: string[]) =>
+      !value || value.length <= 5 || "A maximum of 5 labels is allowed",
   },
   {
     name: "resources",
@@ -185,18 +221,43 @@ export const ProjectsBoard: React.FC<ProjectsBoardProps> = ({
   const [projectToEdit, setProjectToEdit] = useState<Project | null>(null);
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
-  const [visibleColumns] = useState({
-    project: true,
-    status: true,
-    priority: true,
-    team: true,
-    dueDate: true,
-    actions: true,
-  });
-  const [statusFilter, setStatusFilter] = useState<string>("All");
-  const [priorityFilter, setPriorityFilter] = useState<string>("All");
+
+  const [visibleColumns, setVisibleColumns] = useState<ProjectVisibleColumns>(
+    () => {
+      try {
+        const saved = localStorage.getItem("projects_visible_columns");
+        return saved ? JSON.parse(saved) : DEFAULT_PROJECT_COLUMNS;
+      } catch {
+        return DEFAULT_PROJECT_COLUMNS;
+      }
+    },
+  );
+
+  const handleToggleColumn = (fieldKey: keyof ProjectVisibleColumns) => {
+    setVisibleColumns((prev) => {
+      const next = { ...prev, [fieldKey]: !prev[fieldKey] };
+      try {
+        localStorage.setItem("projects_visible_columns", JSON.stringify(next));
+      } catch (e) {
+        console.error("Failed to save project column preferences:", e);
+      }
+      return next;
+    });
+  };
+
+  const [filters, setFilters] = useState<ProjectFilters>(
+    DEFAULT_PROJECT_FILTERS,
+  );
+
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (filters.status !== "all") count++;
+    if (filters.priority !== "all") count++;
+    if (filters.dueBefore !== "") count++;
+    return count;
+  }, [filters]);
 
   useEffect(() => {
     if (user?.id) {
@@ -280,23 +341,59 @@ export const ProjectsBoard: React.FC<ProjectsBoardProps> = ({
     }
   };
 
-  const filteredProjects = projects.filter((project) => {
-    const query = searchQuery.toLowerCase().trim();
+  const formatToLocalDateStr = (
+    dateInput?: string | Date | null,
+  ): string | undefined => {
+    if (!dateInput) return undefined;
+    if (
+      typeof dateInput === "string" &&
+      /^\d{4}-\d{2}-\d{2}$/.test(dateInput.trim())
+    ) {
+      return dateInput.trim();
+    }
+    const d = new Date(dateInput);
+    if (isNaN(d.getTime())) return undefined;
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
 
-    const matchesSearch =
-      !query ||
-      project.name?.toLowerCase().includes(query) ||
-      project.status?.toLowerCase().includes(query) ||
-      project.team_name?.toLowerCase().includes(query);
+  const filteredProjects = useMemo(() => {
+    return projects.filter((project) => {
+      const query = searchQuery.toLowerCase().trim();
 
-    const matchesStatus =
-      statusFilter === "All" || project.status === statusFilter;
+      const matchesSearch =
+        !query ||
+        project.name?.toLowerCase().includes(query) ||
+        project.status?.toLowerCase().includes(query) ||
+        project.team_name?.toLowerCase().includes(query) ||
+        project.labels?.some((l) => l.toLowerCase().includes(query));
 
-    const matchesPriority =
-      priorityFilter === "All" || project.priority === priorityFilter;
+      const matchesStatus =
+        filters.status === "all" || project.status === filters.status;
 
-    return matchesSearch && matchesStatus && matchesPriority;
-  });
+      const matchesPriority =
+        filters.priority === "all" ||
+        (project.priority || "No Priority") === filters.priority;
+
+      let matchesDueDate = true;
+      if (filters.dueBefore) {
+        if (!project.due_date) {
+          matchesDueDate = false;
+        } else {
+          const projDate = formatToLocalDateStr(project.due_date);
+          if (!projDate || projDate > filters.dueBefore) {
+            matchesDueDate = false;
+          }
+        }
+      }
+
+      return (
+        matchesSearch && matchesStatus && matchesPriority && matchesDueDate
+      );
+    });
+  }, [projects, searchQuery, filters]);
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return "No date";
@@ -310,23 +407,42 @@ export const ProjectsBoard: React.FC<ProjectsBoardProps> = ({
         });
   };
 
+  const projectFieldsList: {
+    key: keyof ProjectVisibleColumns;
+    label: string;
+  }[] = [
+    { key: "status", label: "Status" },
+    { key: "priority", label: "Priority" },
+    { key: "team", label: "Team" },
+    { key: "dueDate", label: "Due Date" },
+  ];
+
+  const totalCols =
+    1 + 
+    (visibleColumns.status ? 1 : 0) +
+    (visibleColumns.priority ? 1 : 0) +
+    (visibleColumns.team ? 1 : 0) +
+    (visibleColumns.dueDate ? 1 : 0) +
+    1;
+
   return (
     <div className="flex h-full min-w-0 w-full flex-col overflow-hidden bg-background">
-      <div className="flex flex-col gap-3 border-b border-border p-3 sm:min-h-[60px] sm:flex-row sm:items-center sm:justify-between sm:px-4 sm:py-0 shrink-0">
-        <h1 className="text-base font-semibold text-foreground">Projects</h1>
+      <div className="flex min-h-[56px] sm:min-h-[64px] shrink-0 items-center justify-between border-b border-border px-3 sm:px-6 gap-2">
+        <h1 className="text-lg sm:text-xl font-bold tracking-tight text-foreground shrink-0">
+          Projects
+        </h1>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {isSearchOpen ? (
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-
               <input
                 autoFocus
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search projects..."
-                className="h-8 w-40 rounded-md border border-input bg-background pl-8 pr-2 text-xs text-foreground outline-none focus:ring-1 focus:ring-ring sm:w-56"
+                className="h-8 w-28 sm:w-44 rounded-md border border-input bg-background pl-8 pr-2 text-xs text-foreground outline-none focus:ring-1 focus:ring-ring"
                 onKeyDown={(e) => {
                   if (e.key === "Escape") {
                     setSearchQuery("");
@@ -347,140 +463,230 @@ export const ProjectsBoard: React.FC<ProjectsBoardProps> = ({
             </Button>
           )}
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1.5 rounded-lg px-2.5 sm:px-3 text-xs font-medium text-foreground hover:bg-muted"
+              >
+                <Columns3 className="h-3.5 w-3.5 text-muted-foreground" />
+                <span>Fields</span>
+              </Button>
+            </PopoverTrigger>
+
+            <PopoverContent
+              align="end"
+              sideOffset={8}
+              className="w-48 rounded-2xl p-2.5 shadow-xl border border-border bg-popover"
+            >
+              <div className="space-y-0.5">
+                {projectFieldsList.map((field) => {
+                  const isChecked = !!visibleColumns[field.key];
+
+                  return (
+                    <button
+                      key={field.key}
+                      type="button"
+                      onClick={() => handleToggleColumn(field.key)}
+                      className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted/70 transition-colors select-none"
+                    >
+                      <span className="text-muted-foreground hover:text-foreground">
+                        {field.label}
+                      </span>
+
+                      <div
+                        className={`flex h-4 w-4 items-center justify-center rounded-[5px] border transition-all duration-150 ${
+                          isChecked
+                            ? "bg-neutral-900 border-neutral-900 text-white dark:bg-neutral-100 dark:border-neutral-100 dark:text-neutral-900"
+                            : "border-muted-foreground/30 bg-muted/40"
+                        }`}
+                      >
+                        {isChecked && <Check className="h-3 w-3 stroke-[3]" />}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          <Popover>
+            <PopoverTrigger asChild>
               <Button
                 variant="outline"
                 size="icon"
-                className="relative h-8 w-8 text-foreground"
-                aria-label="Filter"
+                className={`relative h-8 w-8 text-foreground transition-all ${
+                  activeFiltersCount > 0
+                    ? "border-primary bg-primary/10 text-primary"
+                    : ""
+                }`}
+                aria-label="Filter projects"
               >
                 <Filter className="h-3.5 w-3.5" />
-
-                {(statusFilter !== "All" || priorityFilter !== "All") && (
-                  <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-primary" />
+                {activeFiltersCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-neutral-900 text-[9px] font-bold text-white dark:bg-neutral-100 dark:text-neutral-900">
+                    {activeFiltersCount}
+                  </span>
                 )}
               </Button>
-            </DropdownMenuTrigger>
+            </PopoverTrigger>
 
-            <DropdownMenuContent align="end" className="w-52">
-              <div className="px-2 py-1.5 text-xs font-semibold text-foreground">
-                Filter Projects
-              </div>
-
-              <DropdownMenuSeparator />
-
-              <div className="px-2 py-1 text-[11px] font-medium text-muted-foreground">
-                Status
-              </div>
-
-              {[
-                "All",
-                "Backlog",
-                "To Do",
-                "In Progress",
-                "Completed",
-                "On Hold",
-              ].map((status) => (
-                <DropdownMenuCheckboxItem
-                  key={status}
-                  checked={statusFilter === status}
-                  onCheckedChange={() => setStatusFilter(status)}
-                >
-                  {status}
-                </DropdownMenuCheckboxItem>
-              ))}
-
-              <DropdownMenuSeparator />
-
-              <div className="px-2 py-1 text-[11px] font-medium text-muted-foreground">
-                Priority
-              </div>
-
-              {["All", "Urgent", "High", "Medium", "Low", "No Priority"].map(
-                (priority) => (
-                  <DropdownMenuCheckboxItem
-                    key={priority}
-                    checked={priorityFilter === priority}
-                    onCheckedChange={() => setPriorityFilter(priority)}
+            <PopoverContent
+              align="end"
+              sideOffset={8}
+              className="w-64 rounded-2xl p-3.5 shadow-xl border border-border bg-popover space-y-3.5"
+            >
+              <div className="flex items-center justify-between border-b border-border/60 pb-2">
+                <div className="flex items-center gap-1.5 font-semibold text-xs text-foreground">
+                  <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span>Filter Projects</span>
+                </div>
+                {activeFiltersCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setFilters(DEFAULT_PROJECT_FILTERS)}
+                    className="flex items-center gap-1 text-[11px] font-medium text-rose-500 hover:text-rose-600 transition-colors"
                   >
-                    {priority}
-                  </DropdownMenuCheckboxItem>
-                ),
-              )}
+                    <X className="h-3 w-3" />
+                    <span>Reset</span>
+                  </button>
+                )}
+              </div>
 
-              <DropdownMenuSeparator />
+              <div className="space-y-1">
+                <label className="text-[11px] font-medium text-muted-foreground">
+                  Status
+                </label>
+                <select
+                  value={filters.status}
+                  onChange={(e) =>
+                    setFilters((prev) => ({ ...prev, status: e.target.value }))
+                  }
+                  className="w-full h-8 rounded-lg border border-input bg-background px-2.5 text-xs text-foreground outline-none focus:ring-1 focus:ring-ring"
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="Backlog">Backlog</option>
+                  <option value="To Do">To Do</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="Completed">Completed</option>
+                  <option value="On Hold">On Hold</option>
+                </select>
+              </div>
 
-              <DropdownMenuItem
-                onClick={() => {
-                  setStatusFilter("All");
-                  setPriorityFilter("All");
-                }}
-                className="justify-center text-xs font-medium"
-              >
-                Clear Filters
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              <div className="space-y-1">
+                <label className="text-[11px] font-medium text-muted-foreground">
+                  Priority
+                </label>
+                <select
+                  value={filters.priority}
+                  onChange={(e) =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      priority: e.target.value,
+                    }))
+                  }
+                  className="w-full h-8 rounded-lg border border-input bg-background px-2.5 text-xs text-foreground outline-none focus:ring-1 focus:ring-ring"
+                >
+                  <option value="all">All Priorities</option>
+                  <option value="Urgent">Urgent</option>
+                  <option value="High">High</option>
+                  <option value="Medium">Medium</option>
+                  <option value="Low">Low</option>
+                  <option value="No Priority">No Priority</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[11px] font-medium text-muted-foreground">
+                  Due On or Before
+                </label>
+                <div className="relative flex items-center">
+                  <Calendar className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                  <input
+                    type="date"
+                    value={filters.dueBefore}
+                    onChange={(e) =>
+                      setFilters((prev) => ({
+                        ...prev,
+                        dueBefore: e.target.value,
+                      }))
+                    }
+                    onClick={(e) => (e.target as any).showPicker?.()}
+                    className="w-full h-8 rounded-lg border border-input bg-background pl-8 pr-7 text-xs text-foreground outline-none focus:ring-1 focus:ring-ring cursor-pointer"
+                  />
+                  {filters.dueBefore && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setFilters((prev) => ({ ...prev, dueBefore: "" }))
+                      }
+                      className="absolute right-2 text-muted-foreground hover:text-foreground p-0.5 rounded hover:bg-muted"
+                      title="Clear date"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
 
           <Button
             size="sm"
             onClick={handleOpenCreate}
-            className="h-8 gap-1.5 rounded-md bg-neutral-900 px-3 text-xs font-medium text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900"
+            className="h-8 gap-1 rounded-lg bg-neutral-900 px-2.5 sm:px-3 text-xs font-semibold text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 shrink-0"
           >
             <Plus className="h-3.5 w-3.5" />
-            <span>Add Project</span>
+            <span className="hidden sm:inline">Add Project</span>
+            <span className="sm:hidden">Add</span>
           </Button>
         </div>
       </div>
 
-      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto p-4">
-        <div className="min-w-0 w-full overflow-x-auto rounded-md border border-border bg-card">
+      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto p-4 sm:p-6">
+        <div className="min-w-0 w-full overflow-x-auto rounded-lg border border-border/80 bg-card shadow-xs">
           <Table className="w-full">
-            <TableHeader className="bg-muted/50">
-              <TableRow>
-                {visibleColumns.project && (
-                  <TableHead className="w-[35%] text-xs font-semibold text-foreground">
-                    Projects
-                  </TableHead>
-                )}
+            <TableHeader className="bg-muted/40 border-b border-border/70">
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="w-[35%] text-xs font-semibold text-foreground py-3">
+                  Projects
+                </TableHead>
 
                 {visibleColumns.status && (
-                  <TableHead className="text-xs font-semibold text-foreground">
+                  <TableHead className="text-xs font-semibold text-foreground py-3">
                     Status
                   </TableHead>
                 )}
 
                 {visibleColumns.priority && (
-                  <TableHead className="text-xs font-semibold text-foreground">
+                  <TableHead className="text-xs font-semibold text-foreground py-3">
                     Priority
                   </TableHead>
                 )}
 
                 {visibleColumns.team && (
-                  <TableHead className="text-xs font-semibold text-foreground">
+                  <TableHead className="text-xs font-semibold text-foreground py-3">
                     Team
                   </TableHead>
                 )}
 
                 {visibleColumns.dueDate && (
-                  <TableHead className="text-xs font-semibold text-foreground">
+                  <TableHead className="text-xs font-semibold text-foreground py-3">
                     Due Date
                   </TableHead>
                 )}
 
-                {visibleColumns.actions && (
-                  <TableHead className="text-right text-xs font-semibold text-foreground">
-                    Actions
-                  </TableHead>
-                )}
+                <TableHead className="text-right text-xs font-semibold text-foreground py-3 pr-4">
+                  Actions
+                </TableHead>
               </TableRow>
             </TableHeader>
 
             <TableBody>
               {isProjectsLoading && projects.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-32 text-center">
+                  <TableCell colSpan={totalCols} className="h-32 text-center">
                     <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
                       <Loader2 className="h-4 w-4 animate-spin" />
                       Loading projects...
@@ -489,15 +695,15 @@ export const ProjectsBoard: React.FC<ProjectsBoardProps> = ({
                 </TableRow>
               ) : filteredProjects.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-40 text-center">
+                  <TableCell colSpan={totalCols} className="h-40 text-center">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <FolderKanban className="h-8 w-8 text-muted-foreground/50" />
                       <p className="text-xs font-medium text-foreground">
                         No projects found
                       </p>
                       <p className="text-[11px] text-muted-foreground">
-                        {searchQuery
-                          ? "Try a different search query."
+                        {searchQuery || activeFiltersCount > 0
+                          ? "Try adjusting your search or active filters."
                           : "Create your first project to get started."}
                       </p>
                     </div>
@@ -508,23 +714,21 @@ export const ProjectsBoard: React.FC<ProjectsBoardProps> = ({
                   {filteredProjects.map((project) => (
                     <TableRow
                       key={project.id}
-                      className="cursor-pointer transition-colors hover:bg-muted/40"
+                      className="cursor-pointer transition-colors hover:bg-muted/40 border-b border-border/50"
                       onClick={() => onSelectProject?.(project.id)}
                     >
-                      {visibleColumns.project && (
-                        <TableCell className="text-xs font-medium text-blue-600 hover:underline">
-                          {project.name}
-                        </TableCell>
-                      )}
+                      <TableCell className="font-semibold text-xs text-foreground hover:text-blue-600 py-3">
+                        {project.name}
+                      </TableCell>
 
                       {visibleColumns.status && (
-                        <TableCell className="text-xs text-muted-foreground">
+                        <TableCell className="text-xs text-muted-foreground py-3">
                           {project.status}
                         </TableCell>
                       )}
 
                       {visibleColumns.priority && (
-                        <TableCell>
+                        <TableCell className="py-3">
                           <span
                             className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${
                               priorityStyles[project.priority] ||
@@ -537,79 +741,78 @@ export const ProjectsBoard: React.FC<ProjectsBoardProps> = ({
                       )}
 
                       {visibleColumns.team && (
-                        <TableCell className="text-xs text-muted-foreground">
+                        <TableCell className="text-xs text-muted-foreground py-3">
                           {project.team_name || "—"}
                         </TableCell>
                       )}
 
                       {visibleColumns.dueDate && (
-                        <TableCell className="text-xs text-muted-foreground">
+                        <TableCell className="text-xs font-medium text-foreground py-3">
                           {formatDate(project.due_date)}
                         </TableCell>
                       )}
 
-                      {visibleColumns.actions && (
-                        <TableCell
-                          className="text-right"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                              >
-                                <MoreHorizontal className="h-3.5 w-3.5" />
-                              </Button>
-                            </DropdownMenuTrigger>
-
-                            <DropdownMenuContent
-                              align="end"
-                              className="w-40 p-1 text-xs"
+                      <TableCell
+                        className="text-right py-3 pr-4"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 text-muted-foreground hover:text-foreground"
                             >
-                              <DropdownMenuItem
-                                onClick={() => handleOpenEdit(project)}
-                                className="cursor-pointer gap-2 text-xs"
-                              >
-                                <Edit2 className="h-3.5 w-3.5 text-muted-foreground" />
-                                <span>Edit Project</span>
-                              </DropdownMenuItem>
+                              <MoreHorizontal className="h-3.5 w-3.5" />
+                            </Button>
+                          </DropdownMenuTrigger>
 
-                              <DropdownMenuItem
-                                onClick={() => onSelectProject?.(project.id)}
-                                className="cursor-pointer gap-2 text-xs"
-                              >
-                                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-                                <span>Open Details</span>
-                              </DropdownMenuItem>
+                          <DropdownMenuContent
+                            align="end"
+                            className="w-40 p-1 text-xs"
+                          >
+                            <DropdownMenuItem
+                              onClick={() => handleOpenEdit(project)}
+                              className="cursor-pointer gap-2 text-xs"
+                            >
+                              <Edit2 className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span>Edit Project</span>
+                            </DropdownMenuItem>
 
-                              <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => onSelectProject?.(project.id)}
+                              className="cursor-pointer gap-2 text-xs"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span>Open Details</span>
+                            </DropdownMenuItem>
 
-                              <DropdownMenuItem
-                                onClick={() => setProjectToDelete(project)}
-                                className="cursor-pointer gap-2 text-xs text-rose-500 focus:bg-rose-500/10 focus:text-rose-500"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                                <span>Delete Project</span>
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      )}
+                            <DropdownMenuSeparator />
+
+                            <DropdownMenuItem
+                              onClick={() => setProjectToDelete(project)}
+                              className="cursor-pointer gap-2 text-xs text-rose-500 focus:bg-rose-500/10 focus:text-rose-500"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              <span>Delete Project</span>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
                     </TableRow>
                   ))}
 
-                  <TableRow className="hover:bg-muted/30">
-                    <TableCell colSpan={6} className="py-2.5 px-4">
-                      <button
-                        type="button"
+                  <TableRow className="hover:bg-transparent border-none">
+                    <TableCell colSpan={totalCols} className="py-2.5 px-3">
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={handleOpenCreate}
-                        className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                        className="h-7 gap-1.5 px-2 text-xs font-medium text-foreground hover:bg-muted/60"
                       >
-                        <Plus className="h-3.5 w-3.5" />
-                        <span>Add Projects</span>
-                      </button>
+                        <Plus className="h-3.5 w-3.5 text-foreground" />
+                        <span>Add Project</span>
+                      </Button>
                     </TableCell>
                   </TableRow>
                 </>

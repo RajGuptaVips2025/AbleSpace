@@ -144,6 +144,22 @@ export const getTaskById = async (
   }
 };
 
+export const createSubtask = async (
+  parentId: string,
+  data: Partial<CreateTaskFormData>,
+): Promise<Task | null> => {
+  try {
+    const response = await apiClient.post<ApiResponse<Task>>(
+      `/tasks/${parentId}/subtasks`,
+      data,
+    );
+    return response.data.data || (response.data as unknown as Task);
+  } catch (error) {
+    console.error(`Error creating subtask for task ${parentId}:`, error);
+    return null;
+  }
+};
+
 export const getSubtasks = async (
   id: string
 ): Promise<ApiResponse<Task[]>> => {

@@ -15,11 +15,9 @@ export const SidebarProvider = ({
 }: {
   children: React.ReactNode;
 }) => {
-  // 1. Initialize based on window width if on client, default to false for SSR safety
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
 
   useEffect(() => {
-    // 2. Set initial state on client mount
     const checkScreenSize = () => {
       if (window.innerWidth > 768) {
         setIsSidebarOpen(true);
@@ -30,7 +28,6 @@ export const SidebarProvider = ({
 
     checkScreenSize();
 
-    // 3. Optional: Automatically adjust when screen is resized
     window.addEventListener("resize", checkScreenSize);
     return () => window.removeEventListener("resize", checkScreenSize);
   }, []);
