@@ -31,8 +31,8 @@ interface JwtPayload {
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
-  private readonly jwtSecret =
-    process.env.JWT_SECRET;
+    private readonly jwtSecret: string =
+    process.env.JWT_SECRET || "super_secret_key";
 
   constructor(
     private readonly db: DatabaseService

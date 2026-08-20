@@ -17,15 +17,10 @@ async function bootstrap() {
   app.use(cookieParser());
 
   app.enableCors({
-    // origin: ['http://localhost:3000'], 
-    origin: [
-      'http://localhost:3000',
-      'https://able-space-mdg7.vercel.app',
-      /\.vercel\.app$/, // allows all preview & production vercel deployments
-    ],
+    origin: true, // 👈 Reflects and allows any requesting origin (Vercel + Localhost)
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
   });
 
   const port = process.env.PORT || 8000;
@@ -33,3 +28,48 @@ async function bootstrap() {
   console.log(`Server running on http://localhost:${port}/api`);
 }
 bootstrap();
+
+
+
+
+
+
+
+
+
+
+// import { NestFactory } from '@nestjs/core';
+// import { AppModule } from './app.module';
+// import { ValidationPipe } from '@nestjs/common/pipes/validation.pipe';
+// import cookieParser from 'cookie-parser';
+
+// async function bootstrap() {
+//   const app = await NestFactory.create(AppModule);
+
+//   app.useGlobalPipes(
+//     new ValidationPipe({
+//       whitelist: true,
+//       transform: true,
+//     }),
+//   );
+//   app.setGlobalPrefix('api');
+
+//   app.use(cookieParser());
+
+//   app.enableCors({
+//     // origin: ['http://localhost:3000'], 
+//     origin: [
+//       'http://localhost:3000',
+//       'https://able-space-mdg7.vercel.app',
+//       /\.vercel\.app$/, // allows all preview & production vercel deployments
+//     ],
+//     credentials: true,
+//     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+//     allowedHeaders: ['Content-Type', 'Authorization'],
+//   });
+
+//   const port = process.env.PORT || 8000;
+//   await app.listen(port);
+//   console.log(`Server running on http://localhost:${port}/api`);
+// }
+// bootstrap();

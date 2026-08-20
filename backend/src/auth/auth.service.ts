@@ -13,8 +13,8 @@ import { FirebaseLoginDto } from './dto/firebase-login.dto';
 
 @Injectable()
 export class AuthService {
-  private readonly jwtSecret =
-    process.env.JWT_SECRET;
+  private readonly jwtSecret: string =
+    process.env.JWT_SECRET || 'super_secret_key';
 
   constructor(private readonly db: DatabaseService) { }
 
