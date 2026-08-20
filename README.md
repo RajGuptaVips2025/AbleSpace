@@ -22,68 +22,75 @@
 
 ---
 
-## 📸 Overview & Key Highlights
+## 📸 Overview & Core Features
 
 | Feature | Description |
 | :--- | :--- |
-| **Hierarchical Task Trees** | Projects contain tasks, and tasks can have nested subtasks with progress tracking. |
-| **Smart Deadline Clamping** | UI date-pickers and database triggers strictly enforce that task deadlines cannot exceed parent project deadlines. |
-| **Tri-Mode Authentication** | Google OAuth via Firebase, Email/Password (Bcrypt + JWT), and 1-click Guest Sessions. |
-| **Dynamic View Customizer** | Toggle table column visibility with persistent storage and multi-faceted search/filters. |
-| **Theme & Color Customization** | Light/Dark theme switching with 6 accent color modes (Amber, Blue, Pink, Rose, Emerald, Black). |
-| **Discussions & Activity Logs** | Real-time comment feeds, creator attribution, and automatic status/priority update records. |
+| **Passwordless & Social Auth** | 1-click Google Sign-In via Firebase Auth alongside instant Guest Mode and Email/Password authentication. |
+| **Multi-Level Hierarchy** | 3-tier recursive structure (`Project ➔ Task ➔ Subtask`) with status, priority, and deadline inheritance. |
+| **Dark & Light Mode** | Seamless, accessible theme switching with persistent storage and zero layout shift. |
+| **Search & Multi-Filter** | Real-time debounced text search across titles, teams, and tags with multi-faceted status, priority, and date filters. |
+| **Detailed Entity Views** | Dedicated comprehensive detail view for Projects and Tasks featuring activity logs, comments, and resource links. |
+| **Full Edit & Manage Engine** | In-place quick editing and modal updates for Projects, Tasks, and Subtasks with cascading relational cleanup. |
 
 ---
 
 ## 🚀 Feature Breakdown
 
-### 1. 🏢 Project Management
-- Full CRUD operations with detailed metadata: Name, Description, Status (`Backlog`, `To Do`, `In Progress`, `Completed`, `On Hold`), Priority (`Urgent`, `High`, `Medium`, `Low`, `No Priority`), Team Name, Due Date, Documentation Links, and Labels (max 5 tags).
-- Summary statistics and dedicated project detailed view with nested task boards.
+### 1. 🔐 Passwordless & Flexible Authentication
+- **Firebase Google OAuth:** One-click passwordless sign-in with automatic account creation and profile avatar synchronization in PostgreSQL.
+- **Guest Session Mode:** Instant 1-click guest login for frictionless recruiter and reviewer exploration without credentials.
+- **Traditional Email/Password:** Secure password hashing using `bcrypt` (10 salt rounds) and stateless JWT verification.
+- **Decoupled Session Handling:** Client-side cookie bridge with `SameSite=None` / `Secure` support for cross-domain communication between Vercel and Railway.
 
-### 2. 📋 Hierarchical Task & Subtask Tracking
-- Tasks linked directly to parent projects with status, priority, and assignee metadata.
-- First-class Subtask support (`parent_id` self-referencing relationship) allowing deep hierarchy.
-- Interactive status popovers and quick-edit dropdowns.
+### 2. 📋 Multi-Level Task Handling (`Project ➔ Task ➔ Subtask`)
+- **Projects:** Top-level containers with statuses (`Backlog`, `To Do`, `In Progress`, `Completed`, `On Hold`), priority tags, assigned team, due date, resources, and labels.
+- **Tasks:** Linked to parent projects with dedicated status, priority, and deadline tracking.
+- **Subtasks:** Hierarchical tasks with `parent_id` self-referencing relationship, enabling granular sub-activity tracking within a parent task.
 
-### 3. 🛡️ Smart Date Hierarchy & Validation
-- **Frontend Clamping:** The task creation date picker dynamically constrains `maxDate` to the parent project's due date, preventing accidental scheduling beyond project scope.
-- **Database Integrity (PL/pgSQL Trigger):** A PostgreSQL database trigger (`validate_task_due_date_trigger`) executes before `INSERT` or `UPDATE` on the `tasks` table to guarantee that task deadlines never exceed project deadlines at the database engine level.
+### 3. 🌓 Dark / Light Mode Support
+- Full dark and light theme switching built with Tailwind CSS design tokens.
+- Persists user theme preference across browser sessions without screen flickering or hydration mismatch.
 
-### 4. 🔐 Robust Authentication System
-- **Google OAuth (Firebase):** One-click sign-in synchronized with the PostgreSQL database.
-- **Email & Password:** Secure password hashing using `bcrypt` (10 salt rounds) with JWT authorization.
-- **Guest Access Mode:** 1-click ephemeral session allowing instant preview without credentials.
-- **Cross-Domain Session Management:** Production cookies configured with `SameSite=None`, `Secure`, and client-side fallback synchronization for decoupled frontend/backend hosting.
+### 4. 🔍 Search & Multi-Faceted Filtering
+- **Real-Time Search:** Instant debounced search filtering by project/task title, team name, and assigned tags.
+- **Combined Filter Engine:** Filter entities simultaneously by Status, Priority level, and "Due On or Before" dates.
+- **Dynamic Column Customizer:** Customize visible table columns (Status, Priority, Team, Due Date) with `localStorage` persistence.
 
-### 5. 🔍 Interactive Search, Filters & Field Customizer
-- **Instant Search:** Debounced multi-field search across title, team name, and labels.
-- **Filters:** Combined filtering by Status, Priority, and "Due On or Before" date ranges.
-- **Column Customizer:** Show/hide Status, Priority, Team, and Due Date columns with `localStorage` persistence.
+### 5. 📑 Detailed View for Projects & Tasks
+- Unified `EntityDetailView` panel showcasing all metadata in an organized, collapsible layout.
+- **Real-Time Comment Feed:** Add comments and discussions to any project or task.
+- **Resource Management:** Attach documentation, reference URLs, and tags.
+- **Activity Tracking:** Clear visual indicators of creation dates, author avatars, and status states.
 
-### 6. 🎨 Personalized UI/UX & Theming
-- Fully responsive sidebar layout with backdrop blur overlay on mobile screens.
-- **Theme Switcher:** Seamless Dark / Light mode toggling.
-- **Color Palette Modes:** 6 visual accents (Amber, Blue, Pink, Rose, Emerald, Black).
+### 6. ✏️ Full Editing Capabilities for Projects, Tasks & Subtasks
+- **In-Place Quick Updates:** Update status and priority directly from dropdown selectors.
+- **Comprehensive Edit Modals:** Edit title, description, team, labels, and due dates at any time.
+- **Smart Date Clamping:** Task and subtask datepickers constrain maximum selectable date to parent project deadlines.
+- **Database Trigger Validation:** PL/pgSQL database trigger (`check_task_due_date`) strictly validates date hierarchy on `INSERT` and `UPDATE`.
 
 ---
 
-## 💡 Design Deviations & Value-Add Enhancements
+## 💡 Design Deviations & Architectural Decisions
 
-Beyond the baseline requirements, the following architectural and UX enhancements were implemented:
+To translate the static Figma wireframes into a fully functioning, production-grade application, several deliberate architectural and UX enhancements were implemented:
 
-1. **Dual-Layer Deadline Integrity:** 
-   - Instead of relying solely on frontend form checks, a database-level PL/pgSQL trigger was implemented in PostgreSQL (`check_task_due_date()`) to ensure absolute data consistency even if API endpoints are called externally.
-2. **Dynamic Column Visibility Engine:**
-   - Added a "Fields" popover enabling users to customize their table view, storing preferences in `localStorage` per device.
-3. **Decoupled Production Architecture:**
-   - Architected as an independent frontend (Vercel Serverless Edge) and backend (Railway PostgreSQL + NestJS) with cross-origin cookie security and CORS safeguards.
-4. **Enhanced Color Mode Customizer:**
-   - Expanded the user profile settings to include live accent color swatches matching modern design systems.
-5. **Cascading Relational Integrity (`ON DELETE CASCADE`):**
-   - Deleting a project automatically cleans up all associated tasks, subtasks, and updates, preventing orphaned database records.
-6. **Non-Blocking Toast Feedback:**
-   - Replaced default alert popups with fluid, animated notifications using `Sonner`.
+## 💡 Design Deviations & Architectural Decisions
+
+To translate the static Figma wireframes into a fully functioning, production-grade application, several deliberate architectural and UX enhancements were implemented:
+
+1. **Passwordless & Guest Authentication Experience:**
+   - **Deviation / Addition:** The base mockup lacked a frictionless onboarding flow. Integrated **Firebase Google OAuth** for one-click passwordless sign-in (eliminating the need to remember credentials) alongside an **Instant Guest Mode** so evaluators and recruiters can test the entire platform without creating an account.
+2. **Custom-Designed Modal Dialogs for Creation & Editing:**
+   - **Deviation / Addition:** The Figma design only provided static board/view states without detailing the creation or editing UX. Visualized and engineered custom modal dialogs (`CreateEntityDialog`, edit views, date-pickers, label selectors) from scratch, ensuring they match the minimalist design system of the original mockups.
+3. **Pragmatic Collaboration & RBAC Scoping:**
+   - **Architectural Decision:** The Figma design featured visual hints of team collaboration (assignee avatars, team badges), but lacked concrete permission specifications. To deliver a rock-solid, production-tested, and bug-free core application within the delivery window, implemented a shared workspace model with team tagging and discussion threads, intentionally documenting complex enterprise RBAC permission matrices for future iterations.
+4. **Comprehensive Toast Notification Engine (Sonner):**
+   - **Deviation / Addition:** Replaced silent background updates and generic browser alerts with fluid, contextual toast messages for every user action (creation, updates, network errors, validation warnings, and deletion confirmations).
+5. **Dual-Layer Hierarchical Date Validation:**
+   - **Deviation / Addition:** Enforced date integrity at two levels — client-side date-pickers dynamically clamp maximum dates to the parent project's due date, and a PostgreSQL PL/pgSQL trigger (`check_task_due_date`) prevents invalid deadlines at the database engine level.
+6. **Dynamic Column Visibility Customizer:**
+   - **Deviation / Addition:** Added a "Fields" popover enabling users to customize and toggle table columns (Status, Priority, Team, Due Date), persisting preferences in `localStorage`.
 
 ---
 
@@ -162,24 +169,60 @@ erDiagram
     }
 ```
 
-### PostgreSQL Date Validation Trigger:
+### 🔗 Entity Relationships Explained
+| Relationship | Cardinality | Description & Cascade Rules |
+| :--- | :---: | :--- |
+| **`USERS` ➔ `PROJECTS`** | **One-to-Many (`1:N`)** | **One user** can create and manage **many projects**. Each project is linked via `projects.user_id`. When a user account is deleted, all their projects are automatically deleted via `ON DELETE CASCADE`. |
+| **`PROJECTS` ➔ `TASKS`** | **One-to-Many (`1:N`)** | **One project** contains **many tasks**. Each task references its parent project via `tasks.project_id`. Deleting a project automatically removes all associated tasks. |
+| **`USERS` ➔ `TASKS`** | **One-to-Many (`1:N`)** | **One user** can author and be assigned to **many tasks**. Linked via `tasks.user_id` to track task creator and fallback avatar initials. |
+| **`TASKS` ➔ `TASKS`** | **Self-Referencing (`1:N`)** | **One parent task** can contain **many subtasks**. Subtasks store their parent's ID in `tasks.parent_id`. Top-level tasks have `parent_id = NULL`. Deleting a parent task automatically deletes all its nested subtasks. |
+
+---
+
+### 🔗 Entity Relationships Explained
+
+| Relationship | Cardinality | Description & Cascade Rules |
+| :--- | :---: | :--- |
+| **`USERS` ➔ `PROJECTS`** | **One-to-Many (`1:N`)** | **One user** can create and manage **many projects**. Each project is linked via `projects.user_id`. When a user account is deleted, all their projects are automatically deleted via `ON DELETE CASCADE`. |
+| **`PROJECTS` ➔ `TASKS`** | **One-to-Many (`1:N`)** | **One project** contains **many tasks**. Each task references its parent project via `tasks.project_id`. Deleting a project automatically removes all associated tasks. |
+| **`USERS` ➔ `TASKS`** | **One-to-Many (`1:N`)** | **One user** can author and be assigned to **many tasks**. Linked via `tasks.user_id` to track task creator and fallback avatar initials. |
+| **`TASKS` ➔ `TASKS`** | **Self-Referencing (`1:N`)** | **One parent task** can contain **many subtasks**. Subtasks store their parent's ID in `tasks.parent_id`. Top-level tasks have `parent_id = NULL`. Deleting a parent task automatically deletes all its nested subtasks. |
+
+---
+
+### 🛡️ PostgreSQL Date Validation Trigger
+
+#### Business Logic:
+A task or subtask **must never have a deadline later than the parent project's deadline**. While the frontend UI date-picker clamps the maximum selectable date, this PostgreSQL trigger guarantees that business logic cannot be violated at the database layer.
+
 ```sql
 CREATE OR REPLACE FUNCTION check_task_due_date() RETURNS trigger AS $$
 DECLARE
     project_due DATE;
 BEGIN
+    -- 1. Fetch parent project due date
     SELECT due_date INTO project_due FROM projects WHERE id = NEW.project_id;
+    
+    -- 2. Validate task deadline against project deadline
     IF project_due IS NOT NULL AND NEW.due_date IS NOT NULL AND NEW.due_date > project_due THEN
         RAISE EXCEPTION 'Task due date (%) cannot exceed project due date (%)', NEW.due_date, project_due;
     END IF;
+    
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
+-- 3. Trigger executes before any INSERT or UPDATE on tasks
 CREATE TRIGGER validate_task_due_date_trigger 
 BEFORE INSERT OR UPDATE ON tasks 
 FOR EACH ROW EXECUTE FUNCTION check_task_due_date();
 ```
+
+#### How the Trigger Works:
+1. **Trigger Interception:** Runs automatically on `BEFORE INSERT` or `BEFORE UPDATE` on any row in the `tasks` table.
+2. **Querying Parent Scope:** Looks up the parent project's `due_date` using `NEW.project_id`.
+3. **Condition Check:** If `NEW.due_date > project_due`, PostgreSQL immediately aborts the transaction and throws a descriptive exception.
+4. **Data Integrity:** Protects the database from invalid date scheduling across all API clients.
 
 ---
 
@@ -188,38 +231,101 @@ FOR EACH ROW EXECUTE FUNCTION check_task_due_date();
 ```text
 AbleSpace/
 ├── backend/                        # NestJS REST API Server
+│   ├── sql/
+│   │   └── schema.sql              # Database DDL, tables & trigger functions
 │   ├── src/
-│   │   ├── auth/                   # Authentication module (JWT, Firebase, Guest)
-│   │   │   ├── dto/                # Request validation DTOs
-│   │   │   ├── auth.controller.ts  # Auth routes (/api/auth)
-│   │   │   ├── auth.service.ts     # Business logic & token generation
+│   │   ├── auth/                   # Authentication Module (Firebase OAuth, JWT, Guest)
+│   │   │   ├── dto/
+│   │   │   │   ├── firebase-login.dto.ts
+│   │   │   │   ├── login.dto.ts
+│   │   │   │   └── register.dto.ts
+│   │   │   ├── interfaces/
+│   │   │   │   └── user-row.interface.ts
+│   │   │   ├── auth.controller.ts  # Auth endpoints (/api/auth)
+│   │   │   ├── auth.module.ts
+│   │   │   ├── auth.service.ts     # Password hashing & token issuance
 │   │   │   └── jwt-auth.guard.ts   # Route guard & cookie verification
-│   │   ├── database/               # PostgreSQL pool connection service
-│   │   ├── projects/               # Projects CRUD module
-│   │   ├── tasks/                  # Tasks & Subtasks CRUD module
+│   │   ├── database/               # PostgreSQL Connection Module
+│   │   │   ├── database.module.ts
+│   │   │   └── database.service.ts # Parameterized SQL query executor
+│   │   ├── projects/               # Projects Management Module
+│   │   │   ├── dto/
+│   │   │   │   ├── add-comment.dto.ts
+│   │   │   │   ├── create-project.dto.ts
+│   │   │   │   └── update-project.dto.ts
+│   │   │   ├── projects.controller.ts
+│   │   │   ├── projects.module.ts
+│   │   │   └── projects.service.ts
+│   │   ├── tasks/                  # Tasks & Subtasks Management Module
+│   │   │   ├── dto/
+│   │   │   │   ├── create-task.dto.ts
+│   │   │   │   └── update-task.dto.ts
+│   │   │   ├── tasks.controller.ts
+│   │   │   ├── tasks.module.ts
+│   │   │   └── tasks.service.ts
+│   │   ├── app.controller.spec.ts
+│   │   ├── app.controller.ts
 │   │   ├── app.module.ts           # Root application module
-│   │   └── main.ts                 # Bootstrap, CORS & global pipes
+│   │   ├── app.service.ts
+│   │   └── main.ts                 # Bootstrap, CORS, cookie-parser & pipes
+│   ├── test/                       # E2E Testing Suite
+│   │   ├── app.e2e-spec.ts
+│   │   └── jest-e2e.json
+│   ├── .env
+│   ├── .gitignore
+│   ├── .prettierrc
+│   ├── eslint.config.mjs
+│   ├── nest-cli.json
 │   ├── package.json
+│   ├── tsconfig.build.json
 │   └── tsconfig.json
 │
 ├── frontend/                       # Next.js 15 Frontend
-│   ├── app/                        # App Router Pages
-│   │   ├── (auth)/                 # Login & Register routes
-│   │   ├── (dashboard)/            # Protected dashboard & project views
-│   │   └── layout.tsx              # Root HTML & theme provider
-│   ├── components/
-│   │   ├── common/                 # Reusable components (Sidebar, Popovers, Dialogs)
-│   │   │   ├── Dashboard/          # Shared EntityDetailView layout
-│   │   │   └── Dialog/             # CreateEntityDialog form engine
-│   │   ├── features/               # Domain components (ProjectsBoard, TaskBoard)
-│   │   └── ui/                     # Primitives (Table, Card, Button, Avatar, etc.)
-│   ├── hooks/                      # Custom React hooks (useGoogleAuth, useAuth)
-│   ├── lib/                        # Firebase & utility configurations
-│   ├── store/                      # Zustand store & slices (authSlice, projectSlice)
-│   ├── middleware.ts               # Route protection & cookie validation
+│   ├── api/                        # Axios API Client & Endpoints
+│   │   ├── auth/                   # Auth endpoints (login, register, firebase, me)
+│   │   ├── projects/               # Projects endpoints (CRUD, comments, labels)
+│   │   └── tasks/                  # Tasks & Subtasks endpoints (CRUD, subtasks)
+│   ├── app/                        # App Router Pages & Layouts
+│   │   ├── (auth)/                 # Public Authentication Route Group
+│   │   │   ├── login/              # Login page (/login)
+│   │   │   └── register/           # Register page (/register)
+│   │   ├── (dashboard)/            # Protected Dashboard Route Group
+│   │   │   └── dashboard/
+│   │   │       ├── projects/       # Projects Board (/dashboard/projects)
+│   │   │       │   └── [projectId]/# Dynamic Project Detail (/dashboard/projects/:id)
+│   │   │       ├── tasks/          # Tasks Board (/dashboard/tasks)
+│   │   │       │   └── [taskId]/   # Dynamic Task Detail (/dashboard/tasks/:id)
+│   │   │       └── settings/       # User Settings (/dashboard/settings)
+│   │   ├── favicon.ico
+│   │   ├── globals.css             # Tailwind base styles & color tokens
+│   │   └── layout.tsx              # Root layout & providers
+│   ├── components/                 # Component Library
+│   │   ├── common/                 # Shared Components (Sidebar, Popovers, Dialogs)
+│   │   │   ├── Dashboard/          # EntityDetailView sliding layout
+│   │   │   └── Dialog/             # CreateEntityDialog dynamic modal
+│   │   ├── features/               # Domain-Specific Boards (ProjectsBoard, TaskBoard)
+│   │   └── ui/                     # Primitives (Table, Card, Button, Avatar, Dialog, etc.)
+│   ├── context/                    # React Contexts (SidebarContext.tsx)
+│   ├── hooks/                      # Custom Hooks (useGoogleAuth.ts, useAuth.ts)
+│   ├── lib/                        # Utilities & Firebase client config (firebase.ts, utils.ts)
+│   ├── public/                     # Static media & assets
+│   ├── store/                      # Zustand Global State Management
+│   │   ├── slices/                 # Modular State Slices
+│   │   │   ├── authSlice.ts        # User authentication & session state
+│   │   │   ├── projectSlice.ts     # Projects state & active selection
+│   │   │   └── taskSlice.ts        # Tasks, subtasks & filtering state
+│   │   └── useAppStore.ts          # Central combined Zustand store
+│   ├── types/                      # TypeScript definitions (entity.types.ts)
+│   ├── .env
+│   ├── .gitignore
+│   ├── components.json             # Shadcn / Radix configuration
+│   ├── eslint.config.mjs
+│   ├── middleware.ts               # Route protection & auth verification
+│   ├── next.config.ts
 │   ├── package.json
-│   └── tailwind.config.ts
-└── README.md
+│   ├── postcss.config.mjs
+│   ├── tailwind.config.ts
+│   └── tsconfig.json
 ```
 
 ---
@@ -249,13 +355,13 @@ npm install
 
 Create a `.env` file in the `backend/` directory:
 ```env
-PORT=8000
-DB_HOST=localhost
-DB_PORT=5432
-DB_USER=postgres
-DB_PASSWORD=your_postgres_password
-DB_NAME=taskboard_db
-JWT_SECRET=super_secret_jwt_key_for_development
+PORT=""
+DB_HOST=""
+DB_PORT=""
+DB_USER=""
+DB_PASSWORD=""
+DB_NAME=""
+JWT_SECRET=""
 NODE_ENV=development
 ```
 
