@@ -20,7 +20,7 @@ async function bootstrap() {
     // origin: ['http://localhost:3000'], 
     origin: [
       'http://localhost:3000',
-      'https://able-space-9iwv.vercel.app',
+      'https://able-space-mdg7.vercel.app',
       /\.vercel\.app$/, // allows all preview & production vercel deployments
     ],
     credentials: true,
