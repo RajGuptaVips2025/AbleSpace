@@ -69,12 +69,6 @@
 - **Smart Date Clamping:** Task and subtask datepickers constrain maximum selectable date to parent project deadlines.
 - **Database Trigger Validation:** PL/pgSQL database trigger (`check_task_due_date`) strictly validates date hierarchy on `INSERT` and `UPDATE`.
 
----
-
-## 💡 Design Deviations & Architectural Decisions
-
-To translate the static Figma wireframes into a fully functioning, production-grade application, several deliberate architectural and UX enhancements were implemented:
-
 ## 💡 Design Deviations & Architectural Decisions
 
 To translate the static Figma wireframes into a fully functioning, production-grade application, several deliberate architectural and UX enhancements were implemented:
@@ -93,6 +87,112 @@ To translate the static Figma wireframes into a fully functioning, production-gr
    - **Deviation / Addition:** Added a "Fields" popover enabling users to customize and toggle table columns (Status, Priority, Team, Due Date), persisting preferences in `localStorage`.
 
 ---
+
+## 🖼️ UI Showcase & Visual Design Deviations
+
+### 1. 🔐 Onboarding & Passwordless Authentication
+*1-click Google Sign-in & Instant Guest Session*
+
+| Welcome / Guest Auth Card | Google OAuth Login |
+| :---: | :---: |
+| ![Auth Card](assets/screenshots/AuthCard.png) | ![Login Page](assets/screenshots/LoginPage.png) |
+
+**Key Capabilities & Architectural Decisions:**
+- **Passwordless Firebase OAuth:** Users can sign in with one click using Google authentication, eliminating the need to remember credentials. The user account and avatar are automatically provisioned in PostgreSQL.
+- **1-Click Guest Session:** Designed for recruiters and evaluators to explore the platform immediately without registration or login credentials.
+- **Cross-Domain Session Handling:** Synchronizes tokens securely between the Vercel frontend and Railway backend with `SameSite=None` and `Secure` cookie configurations.
+
+---
+
+### 2. 🏢 Projects & Hierarchical Task Boards
+*Multi-level management with real-time filters and dynamic column visibility*
+
+| Projects Board (Light/Dark) | Hierarchical Tasks & Subtasks |
+| :---: | :---: |
+| ![Projects Board](assets/screenshots/ProjectBoard.png) | ![Task Board](assets/screenshots/TaskBoard.png) |
+
+**Key Capabilities & Architectural Decisions:**
+- **3-Tier Hierarchy:** Seamlessly organize workflows from top-level **Projects** down to **Tasks** and nested **Subtasks**.
+- **Real-Time Search & Multi-Filters:** Instant debounced search across names, teams, and tags, with combined filters for Status, Priority, and Due Dates.
+- **Dynamic Field Customizer:** Users can show/hide columns (Status, Priority, Team, Due Date) based on their workflow preferences, with settings saved in `localStorage`.
+
+---
+
+### 3. 💡 Custom Creation & Edit Modals *(Visualized from Scratch)*
+*Custom-engineered modal dialogs featuring input validation and smart date-clamping*
+
+| Create Project Dialog | Create Task & Subtask Dialog |
+| :---: | :---: |
+| ![Create Project](assets/screenshots/CreateProjectDialog.png) | ![Create Task](assets/screenshots/EditTaskDialog.png) |
+
+**Key Capabilities & Architectural Decisions:**
+- **Visualized from Scratch (Design Deviation):** The original Figma design only provided static board/table states without creation or edit flows. These custom modal dialogs were architected from the ground up to match the minimalist design system.
+- **Smart Date-Clamping:** The task and subtask date-picker dynamically restricts maximum selectable dates to the parent project's deadline.
+- **Rich Metadata Inputs:** Support for custom tag badges (up to 5 tags), documentation URL links, priority selectors, and team assignments.
+
+---
+
+### 4. 📑 Entity Detail View & Toast Feedback
+*Collapsible details drawer with real-time comments, resource links, and fluid feedback*
+
+| Project & Task Detail Drawer | Toast Feedback & In-Place Editing |
+| :---: | :---: |
+| ![Entity Detail](assets/screenshots/ProjectDetailedView.png) | ![Toast Notification](assets/screenshots/ToastNotification.png) |
+
+**Key Capabilities & Architectural Decisions:**
+- **Unified Entity Detail Drawer:** Sliding panel showing complete project/task metadata, resource attachments, and creation timestamps.
+- **Live Discussion Stream:** Real-time comment section for contextual team conversations and updates.
+- **Fluid Toast Notification Engine (Sonner):** Non-blocking, animated toast alerts replace disruptive browser popups for immediate feedback on creation, updates, and errors.
+
+---
+
+### 5. 🌙 Dark Mode Theme Support
+*Full theme consistency with dark contrast optimization across all views and dialogs*
+
+| Dark Mode Project Board | Dark Mode Task Editor |
+| :---: | :---: |
+| ![Dark Mode Project Board](assets/screenshots/DarkModeProjectBoard.png) | ![Dark Mode Task Editor](assets/screenshots/EditTaskDialog.png) |
+
+**Key Capabilities & Architectural Decisions:**
+- **Universal Dark/Light Theming:** Built with Tailwind CSS design tokens to maintain clear contrast and readability across cards, dialogs, dropdowns, and drawers.
+- **Persistent Preference:** Saves the user's theme preference in storage to prevent layout flicker or hydration mismatches on page refresh.
+---
+
+## 🖼️ UI Showcase & Visual Design Deviations
+
+### 1. 🔐 Onboarding & Passwordless Authentication
+*1-click Google Sign-in & Instant Guest Session*
+
+| Welcome / Guest Auth Card | Google OAuth Login |
+| :---: | :---: |
+| ![Auth Card](assets/screenshots/auth_card.png) | ![Login Page](assets/screenshots/login_page.png) |
+
+---
+
+### 2. 🏢 Projects & Hierarchical Task Boards
+*Multi-level management with real-time filters and dynamic column visibility*
+
+| Projects Board (Light/Dark) | Hierarchical Tasks & Subtasks |
+| :---: | :---: |
+| ![Projects Board](assets/screenshots/projects_board.png) | ![Task Board](assets/screenshots/task_board.png) |
+
+---
+
+### 3. 💡 Custom Creation & Edit Modals *(Visualized from Scratch)*
+*Custom-engineered modal dialogs featuring input validation and smart date-clamping*
+
+| Create Project Dialog | Create Task & Subtask Dialog |
+| :---: | :---: |
+| ![Create Project](assets/screenshots/modal_create_project.png) | ![Create Task](assets/screenshots/modal_create_task.png) |
+
+---
+
+### 4. 📑 Entity Detail View & Toast Feedback
+*Collapsible details drawer with real-time comments, resource links, and fluid feedback*
+
+| Project & Task Detail Drawer | Toast Feedback & In-Place Editing |
+| :---: | :---: |
+| ![Entity Detail](assets/screenshots/entity_detail.png) | ![Toast Notification](assets/screenshots/toast_notification.png) |
 
 ## 🏗️ Tech Stack & Architecture
 
@@ -170,17 +270,6 @@ erDiagram
 ```
 
 ### 🔗 Entity Relationships Explained
-| Relationship | Cardinality | Description & Cascade Rules |
-| :--- | :---: | :--- |
-| **`USERS` ➔ `PROJECTS`** | **One-to-Many (`1:N`)** | **One user** can create and manage **many projects**. Each project is linked via `projects.user_id`. When a user account is deleted, all their projects are automatically deleted via `ON DELETE CASCADE`. |
-| **`PROJECTS` ➔ `TASKS`** | **One-to-Many (`1:N`)** | **One project** contains **many tasks**. Each task references its parent project via `tasks.project_id`. Deleting a project automatically removes all associated tasks. |
-| **`USERS` ➔ `TASKS`** | **One-to-Many (`1:N`)** | **One user** can author and be assigned to **many tasks**. Linked via `tasks.user_id` to track task creator and fallback avatar initials. |
-| **`TASKS` ➔ `TASKS`** | **Self-Referencing (`1:N`)** | **One parent task** can contain **many subtasks**. Subtasks store their parent's ID in `tasks.parent_id`. Top-level tasks have `parent_id = NULL`. Deleting a parent task automatically deletes all its nested subtasks. |
-
----
-
-### 🔗 Entity Relationships Explained
-
 | Relationship | Cardinality | Description & Cascade Rules |
 | :--- | :---: | :--- |
 | **`USERS` ➔ `PROJECTS`** | **One-to-Many (`1:N`)** | **One user** can create and manage **many projects**. Each project is linked via `projects.user_id`. When a user account is deleted, all their projects are automatically deleted via `ON DELETE CASCADE`. |
