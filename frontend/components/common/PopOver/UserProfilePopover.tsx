@@ -101,7 +101,7 @@ export const UserProfilePopover: React.FC<UserProfilePopoverProps> = ({
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
+      {/* <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
           className="flex h-full w-full items-center justify-between gap-2 rounded-lg p-2 hover:bg-sidebar-accent"
@@ -117,6 +117,19 @@ export const UserProfilePopover: React.FC<UserProfilePopoverProps> = ({
           </div>
           <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
         </Button>
+      </DropdownMenuTrigger> */}
+
+      <DropdownMenuTrigger className="flex h-full w-full items-center justify-between gap-2 rounded-lg p-2 hover:bg-sidebar-accent transition-colors cursor-pointer outline-none">
+        <div className="flex items-center gap-2.5 overflow-hidden text-left">
+          <Avatar className="h-8 w-8 rounded-full">
+            <AvatarImage src={user.avatarUrl || undefined} alt={user.name} />
+            <AvatarFallback>{user.fallback || "U"}</AvatarFallback>
+          </Avatar>
+          <span className="truncate text-sm font-semibold text-sidebar-foreground">
+            {user.name}
+          </span>
+        </div>
+        <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
       </DropdownMenuTrigger>
 
       <DropdownMenuContent

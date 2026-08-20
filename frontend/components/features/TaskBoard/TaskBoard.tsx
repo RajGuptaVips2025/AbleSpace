@@ -154,7 +154,7 @@ export const TaskBoard: React.FC = () => {
   });
 
   const [filters, setFilters] = useState<TaskFilters>(DEFAULT_FILTERS);
-  
+
   const activeFiltersCount = useMemo(() => {
     let count = 0;
     if (filters.status !== "all") count++;
@@ -239,7 +239,7 @@ export const TaskBoard: React.FC = () => {
         name: "project_id",
         label: "Associated Project",
         type: "select",
-        required: "Please select an associated project", 
+        required: "Please select an associated project",
         placeholder: "Select a project...",
         options: projectOptions,
         colSpan: 2,
@@ -280,7 +280,7 @@ export const TaskBoard: React.FC = () => {
         label: "Priority",
         type: "select",
         defaultValue: "No Priority",
-        required: "Priority is required", 
+        required: "Priority is required",
         colSpan: 1,
         options: [
           {
@@ -421,7 +421,7 @@ export const TaskBoard: React.FC = () => {
           ? error.message
           : "An error occurred while saving the task.",
       );
-      throw error; 
+      throw error;
     }
   };
 
@@ -522,8 +522,6 @@ export const TaskBoard: React.FC = () => {
         });
   };
 
-
-
   const filteredTasks = useMemo(() => {
     return tasks.filter((t) => {
       const q = searchQuery.toLowerCase().trim();
@@ -603,9 +601,8 @@ export const TaskBoard: React.FC = () => {
             onToggleField={handleToggleField}
           />
 
-
           <Popover>
-            <PopoverTrigger asChild>
+            {/* <PopoverTrigger asChild>
               <Button
                 variant="outline"
                 size="icon"
@@ -623,6 +620,16 @@ export const TaskBoard: React.FC = () => {
                   </span>
                 )}
               </Button>
+            </PopoverTrigger> */}
+            <PopoverTrigger
+              className={`relative inline-flex items-center justify-center h-8 w-8 rounded-lg border border-input bg-background text-foreground hover:bg-muted cursor-pointer outline-none transition-all ${activeFiltersCount > 0 ? "border-primary bg-primary/10 text-primary" : ""}`}
+            >
+              <Filter className="h-3.5 w-3.5" />
+              {activeFiltersCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-neutral-900 text-[9px] font-bold text-white dark:bg-neutral-100 dark:text-neutral-900">
+                  {activeFiltersCount}
+                </span>
+              )}
             </PopoverTrigger>
 
             <PopoverContent
@@ -761,7 +768,7 @@ export const TaskBoard: React.FC = () => {
                 onOpenChange={() => toggleSection(column.id)}
                 className="space-y-2 w-full"
               >
-                <CollapsibleTrigger asChild>
+                {/* <CollapsibleTrigger asChild>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -774,6 +781,19 @@ export const TaskBoard: React.FC = () => {
                     />
                     <span>{column.title}</span>
                   </Button>
+                </CollapsibleTrigger> */}
+
+                <CollapsibleTrigger className="flex items-center gap-2 text-xs font-semibold text-foreground hover:text-foreground/80 cursor-pointer select-none">
+                  <ChevronDown
+                    className={`h-3.5 w-3.5 transition-transform duration-200 ${isOpen ? "" : "-rotate-90"}`}
+                  />
+                  <span>{column.title}</span>
+                  <Badge
+                    variant="secondary"
+                    className="h-5 px-1.5 text-[10px] font-normal"
+                  >
+                    {tasks.length}
+                  </Badge>
                 </CollapsibleTrigger>
 
                 <CollapsibleContent>
@@ -870,7 +890,7 @@ export const TaskBoard: React.FC = () => {
 
                                 <TableCell className="text-right py-3 pr-4">
                                   <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
+                                    {/* <DropdownMenuTrigger asChild>
                                       <Button
                                         variant="ghost"
                                         size="icon"
@@ -878,6 +898,10 @@ export const TaskBoard: React.FC = () => {
                                       >
                                         <MoreHorizontal className="h-3.5 w-3.5" />
                                       </Button>
+                                    </DropdownMenuTrigger> */}
+
+                                    <DropdownMenuTrigger className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer outline-none">
+                                      <MoreHorizontal className="h-3.5 w-3.5" />
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent
                                       align="end"
@@ -1015,7 +1039,6 @@ export const TaskBoard: React.FC = () => {
                             }`}
                           >
                             <CardContent className="space-y-3 p-0">
-
                               <div className="flex items-start justify-between gap-2">
                                 <h3
                                   onClick={() =>
@@ -1029,7 +1052,7 @@ export const TaskBoard: React.FC = () => {
                                 </h3>
 
                                 <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
+                                  {/* <DropdownMenuTrigger asChild>
                                     <Button
                                       variant="ghost"
                                       size="icon"
@@ -1037,6 +1060,10 @@ export const TaskBoard: React.FC = () => {
                                     >
                                       <MoreHorizontal className="h-3.5 w-3.5" />
                                     </Button>
+                                  </DropdownMenuTrigger> */}
+
+                                  <DropdownMenuTrigger className="flex -mr-1 -mt-1 h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer outline-none transition-colors">
+                                    <MoreHorizontal className="h-3.5 w-3.5" />
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent
                                     align="end"

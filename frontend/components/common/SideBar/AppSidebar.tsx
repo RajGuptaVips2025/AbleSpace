@@ -65,7 +65,6 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
       >
         <div className="flex h-16 w-full items-center justify-between p-2">
           <div className="flex-1 min-w-0">
-
             <UserProfilePopover
               user={{
                 name: user?.name || "Admin",
@@ -95,7 +94,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
             onOpenChange={setIsWorkspaceOpen}
             className="space-y-1"
           >
-            <CollapsibleTrigger asChild>
+            {/* <CollapsibleTrigger asChild>
               <Button
                 variant="ghost"
                 size="sm"
@@ -108,6 +107,15 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                   }`}
                 />
               </Button>
+            </CollapsibleTrigger> */}
+
+            <CollapsibleTrigger className="flex w-full items-center justify-between px-2 py-1 text-xs font-semibold text-muted-foreground hover:text-foreground cursor-pointer select-none">
+              <span>Projects</span>
+              <ChevronDown
+                className={`h-3.5 w-3.5 transition-transform duration-200 ${
+                  isWorkspaceOpen ? "" : "-rotate-90"
+                }`}
+              />
             </CollapsibleTrigger>
 
             <CollapsibleContent className="space-y-1 pt-1">

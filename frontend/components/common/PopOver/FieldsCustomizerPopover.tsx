@@ -62,7 +62,7 @@ export const FieldsCustomizerPopover: React.FC<
 
   return (
     <Popover>
-      <PopoverTrigger asChild>
+      {/* <PopoverTrigger asChild>
         <Button
           variant="outline"
           size="sm"
@@ -71,6 +71,11 @@ export const FieldsCustomizerPopover: React.FC<
           <Columns3 className="h-3.5 w-3.5 text-muted-foreground" />
           <span>Fields</span>
         </Button>
+      </PopoverTrigger> */}
+
+      <PopoverTrigger className="inline-flex items-center gap-1.5 h-8 px-2.5 sm:px-3 text-xs font-medium rounded-lg border border-input bg-background hover:bg-muted text-foreground cursor-pointer outline-none transition-colors">
+        <Columns3 className="h-3.5 w-3.5 text-muted-foreground" />
+        <span>Fields</span>
       </PopoverTrigger>
 
       <PopoverContent

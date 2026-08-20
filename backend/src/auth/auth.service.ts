@@ -14,7 +14,7 @@ import { FirebaseLoginDto } from './dto/firebase-login.dto';
 @Injectable()
 export class AuthService {
   private readonly jwtSecret =
-    process.env.JWT_SECRET || 'super_secret_key';
+    process.env.JWT_SECRET;
 
   constructor(private readonly db: DatabaseService) { }
 

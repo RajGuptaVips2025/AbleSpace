@@ -56,6 +56,7 @@ export interface FieldConfig {
   min?: string;
   max?: string;
   dynamicMax?: (formValues: Record<string, any>) => string | undefined;
+  validate?: (value: any) => boolean | string; 
 }
 
 export interface CreateEntityDialogProps {

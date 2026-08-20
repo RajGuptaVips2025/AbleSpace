@@ -130,7 +130,7 @@ export interface EntityDetailViewProps {
   createdAt?: string;
 
   dueDate?: string | null;
-  maxDueDate?: string | null
+  maxDueDate?: string | null;
   onDueDateChange: (dateStr: string) => Promise<void> | void;
 
   sidebarExtraRows?: React.ReactNode;
@@ -312,11 +312,15 @@ export const EntityDetailView: React.FC<EntityDetailViewProps> = ({
 
           {(onEditClick || onDeleteClick) && (
             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+              {/* <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="icon" className="h-8 w-8">
                   <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
                 </Button>
+              </DropdownMenuTrigger> */}
+              <DropdownMenuTrigger className="flex h-8 w-8 items-center justify-center rounded-md border border-input bg-background hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer outline-none">
+                <MoreHorizontal className="h-4 w-4" />
               </DropdownMenuTrigger>
+
               <DropdownMenuContent align="end" className="w-40">
                 {onEditClick && (
                   <DropdownMenuItem
@@ -447,7 +451,7 @@ export const EntityDetailView: React.FC<EntityDetailViewProps> = ({
               className="space-y-3"
             >
               <div className="flex items-center justify-between">
-                <CollapsibleTrigger asChild>
+                {/* <CollapsibleTrigger asChild>
                   <button
                     type="button"
                     className="flex items-center gap-1 text-sm font-semibold text-foreground hover:text-foreground/80 cursor-pointer select-none"
@@ -464,6 +468,20 @@ export const EntityDetailView: React.FC<EntityDetailViewProps> = ({
                       </span>
                     )}
                   </button>
+                </CollapsibleTrigger> */}
+
+                <CollapsibleTrigger className="flex items-center gap-1 text-sm font-semibold text-foreground hover:text-foreground/80 cursor-pointer select-none">
+                  <ChevronDown
+                    className={`h-4 w-4 transition-transform duration-200 ${
+                      isTableOpen ? "" : "-rotate-90"
+                    }`}
+                  />
+                  <span>{tableTitle}</span>
+                  {tableItems.length > 0 && (
+                    <span className="text-xs font-normal text-muted-foreground">
+                      ({tableItems.length})
+                    </span>
+                  )}
                 </CollapsibleTrigger>
               </div>
 
@@ -547,7 +565,7 @@ export const EntityDetailView: React.FC<EntityDetailViewProps> = ({
 
                             <TableCell className="text-right">
                               <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
+                                {/* <DropdownMenuTrigger asChild>
                                   <Button
                                     variant="ghost"
                                     size="icon"
@@ -555,6 +573,10 @@ export const EntityDetailView: React.FC<EntityDetailViewProps> = ({
                                   >
                                     <MoreHorizontal className="h-3.5 w-3.5" />
                                   </Button>
+                                </DropdownMenuTrigger> */}
+
+                                <DropdownMenuTrigger className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer outline-none">
+                                  <MoreHorizontal className="h-3.5 w-3.5" />
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent
                                   align="end"
@@ -626,7 +648,7 @@ export const EntityDetailView: React.FC<EntityDetailViewProps> = ({
               className="space-y-4"
             >
               <div className="flex items-center justify-between">
-                <CollapsibleTrigger asChild>
+                {/* <CollapsibleTrigger asChild>
                   <button
                     type="button"
                     className="flex items-center gap-1 text-sm font-semibold text-foreground hover:text-foreground/80 cursor-pointer select-none"
@@ -643,6 +665,20 @@ export const EntityDetailView: React.FC<EntityDetailViewProps> = ({
                       </span>
                     )}
                   </button>
+                </CollapsibleTrigger> */}
+
+                <CollapsibleTrigger className="flex items-center gap-1 text-sm font-semibold text-foreground hover:text-foreground/80 cursor-pointer select-none">
+                  <ChevronDown
+                    className={`h-4 w-4 transition-transform duration-200 ${
+                      isCommentsOpen ? "" : "-rotate-90"
+                    }`}
+                  />
+                  <span>Comments</span>
+                  {comments.length > 0 && (
+                    <span className="ml-1 text-xs font-normal text-muted-foreground">
+                      ({comments.length})
+                    </span>
+                  )}
                 </CollapsibleTrigger>
               </div>
 
@@ -765,7 +801,7 @@ export const EntityDetailView: React.FC<EntityDetailViewProps> = ({
                 </Button>
               </div>
 
-              <Collapsible
+              {/* <Collapsible
                 open={isDetailsOpen}
                 onOpenChange={setIsDetailsOpen}
                 asChild
@@ -787,6 +823,21 @@ export const EntityDetailView: React.FC<EntityDetailViewProps> = ({
                           />
                           <span>Details</span>
                         </button>
+                      </CollapsibleTrigger> */}
+
+              <Collapsible open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+                <Card className="border border-border/80 shadow-none rounded-md overflow-hidden transition-all">
+                  <CardHeader
+                    className={`h-9 p-0 ${isDetailsOpen ? "border-b border-border/80" : ""}`}
+                  >
+                    <div className="flex h-full items-center justify-between px-2.5">
+                      <CollapsibleTrigger className="flex items-center gap-1 text-xs font-medium text-foreground hover:text-foreground/80 cursor-pointer select-none">
+                        <ChevronDown
+                          className={`h-3 w-3 transition-transform duration-200 ${
+                            isDetailsOpen ? "" : "-rotate-90"
+                          }`}
+                        />
+                        <span>Details</span>
                       </CollapsibleTrigger>
 
                       <div className="flex items-center gap-0.5">
@@ -824,13 +875,20 @@ export const EntityDetailView: React.FC<EntityDetailViewProps> = ({
                       <div className="flex items-center justify-between py-1">
                         <span className="text-muted-foreground">Status</span>
                         <Popover>
-                          <PopoverTrigger asChild>
+                          {/* <PopoverTrigger asChild>
                             <button className="flex items-center gap-1.5 font-medium hover:opacity-80 transition-opacity">
                               <span
                                 className={`h-2 w-2 rounded-full ${currentStatusObj?.color || "bg-amber-500"}`}
                               />
                               <span>{status}</span>
                             </button>
+                          </PopoverTrigger> */}
+
+                          <PopoverTrigger className="flex items-center gap-1.5 font-medium hover:opacity-80 transition-opacity cursor-pointer outline-none">
+                            <span
+                              className={`h-2 w-2 rounded-full ${currentStatusObj?.color || "bg-amber-500"}`}
+                            />
+                            <span>{status}</span>
                           </PopoverTrigger>
                           <PopoverContent
                             className="w-40 p-1.5 shadow-lg"
@@ -864,7 +922,7 @@ export const EntityDetailView: React.FC<EntityDetailViewProps> = ({
                       <div className="flex items-center justify-between py-1">
                         <span className="text-muted-foreground">Priority</span>
                         <Popover>
-                          <PopoverTrigger asChild>
+                          {/* <PopoverTrigger asChild>
                             <Button
                               variant="ghost"
                               size="sm"
@@ -874,6 +932,12 @@ export const EntityDetailView: React.FC<EntityDetailViewProps> = ({
                               <span>{priority}</span>
                               <ChevronDown className="ml-1 h-3 w-3 text-muted-foreground" />
                             </Button>
+                          </PopoverTrigger> */}
+
+                          <PopoverTrigger className="flex items-center gap-1 px-2 py-1 text-xs font-medium hover:bg-muted rounded-md transition-colors cursor-pointer outline-none">
+                            {renderPriorityIcon(priority)}
+                            <span>{priority}</span>
+                            <ChevronDown className="ml-1 h-3 w-3 text-muted-foreground" />
                           </PopoverTrigger>
                           <PopoverContent
                             className="w-48 p-2 shadow-lg"
@@ -996,7 +1060,7 @@ export const EntityDetailView: React.FC<EntityDetailViewProps> = ({
                 </Card>
               </Collapsible>
 
-              <Collapsible
+              {/* <Collapsible
                 open={isUpdatesOpen}
                 onOpenChange={setIsUpdatesOpen}
                 asChild
@@ -1021,6 +1085,25 @@ export const EntityDetailView: React.FC<EntityDetailViewProps> = ({
                         />
                         <span>Updates</span>
                       </button>
+                    </CollapsibleTrigger>
+                  </CardHeader> */}
+
+              <Collapsible open={isUpdatesOpen} onOpenChange={setIsUpdatesOpen}>
+                <Card className="border border-border/80 shadow-xs overflow-hidden transition-all">
+                  <CardHeader
+                    className={`p-3.5 flex-row items-center justify-between space-y-0 ${
+                      isUpdatesOpen
+                        ? "pb-2 border-b border-border/80"
+                        : "pb-3.5"
+                    }`}
+                  >
+                    <CollapsibleTrigger className="flex items-center gap-1.5 text-xs font-semibold text-foreground hover:text-foreground/80 cursor-pointer select-none">
+                      <ChevronDown
+                        className={`h-3.5 w-3.5 transition-transform duration-200 ${
+                          isUpdatesOpen ? "" : "-rotate-90"
+                        }`}
+                      />
+                      <span>Updates</span>
                     </CollapsibleTrigger>
                   </CardHeader>
 
