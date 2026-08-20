@@ -17,8 +17,13 @@ async function bootstrap() {
   app.use(cookieParser());
 
   app.enableCors({
-    origin: ['http://localhost:3000'], 
-    credentials: true,                
+    // origin: ['http://localhost:3000'], 
+    origin: [
+      'http://localhost:3000',
+      'https://able-space-9iwv.vercel.app',
+      /\.vercel\.app$/, // allows all preview & production vercel deployments
+    ],
+    credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
