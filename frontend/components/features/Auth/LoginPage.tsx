@@ -48,11 +48,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     const result = await loginUser(data);
 
     if (result.success && result.data) {
+      if (typeof document !== "undefined" && result.data.token) {
+        document.cookie = `auth_token=${result.data.token}; path=/; max-age=604800; SameSite=Lax; Secure`;
+      }
       setAuth(result.data.user, result.data.token);
       toast.success("Welcome back!", {
         description: `Signed in as ${result.data.user.name || result.data.user.email}.`,
       });
-      router.push("/dashboard/projects");
+      // router.push("/dashboard/projects");
+      window.location.href = "/dashboard/projects";
     } else {
       const errorMsg = result.message || "Invalid email or password.";
       setErrorMessage(errorMsg);

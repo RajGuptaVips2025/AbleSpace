@@ -52,11 +52,16 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
     const result = await registerUser(data);
 
     if (result.success && result.data) {
+      if (typeof document !== "undefined" && result.data.token) {
+        document.cookie = `auth_token=${result.data.token}; path=/; max-age=604800; SameSite=Lax; Secure`;
+      }
       setAuth(result.data.user, result.data.token);
       toast.success("Account created successfully!", {
         description: `Welcome to Pyramid, ${result.data.user.name}!`,
       });
-      router.push("/dashboard/projects");
+      // router.push("/dashboard/projects");
+
+      window.location.href = "/dashboard/projects";
     } else {
       const errorMsg =
         result.message || "Registration failed. Please try again.";

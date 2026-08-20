@@ -38,6 +38,10 @@ export const useGoogleAuth = () => {
         return;
       }
 
+      if (typeof document !== "undefined" && backendResult.data.token) {
+        document.cookie = `auth_token=${backendResult.data.token}; path=/; max-age=604800; SameSite=Lax; Secure`;
+      }
+
       setAuth(
         backendResult.data.user,
         backendResult.data.token
